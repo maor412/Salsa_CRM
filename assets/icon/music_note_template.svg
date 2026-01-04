@@ -1,0 +1,11 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background (White) - Remove this for transparent foreground version -->
+  <rect width="1024" height="1024" fill="#FFFFFF"/>
+
+  <!-- Music Note Icon (Purple) -->
+  <!-- Based on Material Icons music_note -->
+  <g transform="translate(312, 212)">
+    <path d="M400 200L120 280V520C120 577.6 157.6 625.6 210 640C262.4 654.4 310.4 625.6 320 568C329.6 510.4 292 462.4 239.6 448C234.4 446.4 229.6 445.6 224 445.6V320L360 280V480C360 537.6 397.6 585.6 450 600C502.4 614.4 550.4 585.6 560 528C569.6 470.4 532 422.4 479.6 408C474.4 406.4 469.6 405.6 464 405.6V200H400Z"
+          fill="#673AB7"/>
+  </g>
+</svg>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salsa CRM - Logo Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #673AB7;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .preview {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .preview.white-bg {
+            background: white;
+            border: 2px solid #e0e0e0;
+        }
+
+        .preview.purple-bg {
+            background: #f3e5f5;
+        }
+
+        .preview.checkered {
+            background-image:
+                linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+                linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+                linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .icon {
+            font-size: 120px;
+            color: #673AB7;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        .specs {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .specs p {
+            margin: 8px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .specs strong {
+            color: #673AB7;
+        }
+
+        .color-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .instructions {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 30px;
+        }
+
+        .instructions h2 {
+            color: #673AB7;
+            margin-bottom: 20px;
+        }
+
+        .instructions ol {
+            margin-right: 20px;
+            line-height: 1.8;
+        }
+
+        .instructions li {
+            margin: 10px 0;
+            color: #555;
+        }
+
+        .note {
+            background: #fff3cd;
+            border-right: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .note p {
+            margin: 5px 0;
+            color: #856404;
+        }
+
+        button {
+            background: #673AB7;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5e35b1;
+        }
+
+        .canvas-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Salsa CRM - תצוגת לוגו</h1>
+
+        <div class="grid">
+            <!-- App Icon -->
+            <div class="card">
+                <h2>App Icon (רקע לבן)</h2>
+                <div class="preview white-bg">
+                    <div class="icon">🎵</div>
+                </div>
+                <div class="specs">
+                    <p><strong>גודל:</strong> 1024 × 1024 פיקסלים</p>
+                    <p><strong>רקע:</strong> לבן <span class="color-box" style="background: #FFFFFF;"></span> #FFFFFF</p>
+                    <p><strong>לוגו:</strong> סגול <span class="color-box" style="background: #673AB7;"></span> #673AB7</p>
+                    <p><strong>שם קובץ:</strong> app_icon.png</p>
+                </div>
+                <button onclick="downloadIcon('app_icon', 1024, false)">⬇ הורד PNG</button>
+            </div>
+
+            <!-- App Icon Foreground -->
+            <div class="card">
+                <h2>App Icon Foreground (שקוף)</h2>
+                <div class="preview checkered">
+                    <div class="icon">🎵</div>
+                </div>
+                <div class="specs">
+                    <p><strong>גודל:</strong> 1024 × 1024 פיקסלים</p>
+                    <p><strong>רקע:</strong> שקוף (Transparent)</p>
+                    <p><strong>לוגו:</strong> סגול <span class="color-box" style="background: #673AB7;"></span> #673AB7</p>
+                    <p><strong>Safe Zone:</strong> 20% מכל צד</p>
+                    <p><strong>שם קובץ:</strong> app_icon_foreground.png</p>
+                </div>
+                <button onclick="downloadIcon('app_icon_foreground', 1024, true)">⬇ הורד PNG</button>
+            </div>
+
+            <!-- Splash Logo -->
+            <div class="card">
+                <h2>Splash Logo (שקוף)</h2>
+                <div class="preview purple-bg">
+                    <div class="icon" style="font-size: 140px;">🎵</div>
+                </div>
+                <div class="specs">
+                    <p><strong>גודל:</strong> 1200 × 1200 פיקסלים</p>
+                    <p><strong>רקע:</strong> שקוף (Transparent)</p>
+                    <p><strong>לוגו:</strong> סגול <span class="color-box" style="background: #673AB7;"></span> #673AB7</p>
+                    <p><strong>שם קובץ:</strong> splash_logo.png</p>
+                </div>
+                <button onclick="downloadIcon('splash_logo', 1200, true)">⬇ הורד PNG</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h2>📝 הוראות שימוש</h2>
+            <ol>
+                <li>לחץ על כפתור "הורד PNG" בכל אחד מהקלפים למעלה</li>
+                <li>שמור את הקבצים בתיקייה: <code>assets/icon/</code></li>
+                <li>ודא שהשמות תואמים:
+                    <ul>
+                        <li><code>app_icon.png</code></li>
+                        <li><code>app_icon_foreground.png</code></li>
+                        <li><code>splash_logo.png</code></li>
+                    </ul>
+                </li>
+                <li>הרץ את הפקודות:
+                    <ul>
+                        <li><code>flutter pub get</code></li>
+                        <li><code>flutter pub run flutter_launcher_icons</code></li>
+                        <li><code>flutter pub run flutter_native_splash:create</code></li>
+                    </ul>
+                </li>
+            </ol>
+
+            <div class="note">
+                <p><strong>⚠ שים לב:</strong></p>
+                <p>• הלוגו הזה משתמש ב-emoji (🎵) - לאיכות גבוהה יותר, מומלץ להשתמש ב-SVG או בתמונה מעוצבת</p>
+                <p>• עבור מראה מקצועי, השתמש בכלי עיצוב כמו Figma, Canva או Icon Generator</p>
+                <p>• ה-emoji עשוי להיראות שונה על פלטפורמות שונות (Android vs iOS)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Canvas for generating images -->
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        function downloadIcon(name, size, transparent) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = size;
+            canvas.height = size;
+
+            // Background
+            if (!transparent) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, size, size);
+            }
+
+            // Icon (Music Note Emoji)
+            const iconSize = name === 'splash_logo' ? size * 0.5 : size * 0.6;
+            const safeZone = name === 'app_icon_foreground' ? 0.2 : 0;
+            const adjustedSize = iconSize * (1 - safeZone * 2);
+
+            ctx.font = `${adjustedSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#673AB7';
+            ctx.fillText('🎵', size / 2, size / 2);
+
+            // Download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+    </script>
+</body>
+</html>

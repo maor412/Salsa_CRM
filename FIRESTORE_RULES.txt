@@ -1,0 +1,85 @@
+// Firestore Security Rules for Salsa CRM
+// Copy these rules to Firebase Console > Firestore Database > Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    function isInstructor() {
+      return isSignedIn() && (getUserData().role == 'instructor' || getUserData().role == 'admin');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Students collection
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      allow write: if isInstructor();
+    }
+
+    // Attendance sessions
+    match /attendanceSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create: if isInstructor();
+      allow update: if isInstructor() && resource.data.instructorId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Attendance records
+    match /attendanceRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isInstructor();
+    }
+
+    // Exercises
+    match /exercises/{exerciseId} {
+      allow read: if isSignedIn();
+      allow write: if isInstructor();
+    }
+
+    // Message templates
+    match /messageTemplates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Message events
+    match /messageEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isInstructor();
+      allow update: if isInstructor();
+      allow delete: if isAdmin();
+    }
+
+    // Settings collection (NEW)
+    match /settings/{settingId} {
+      // Allow all authenticated users to READ settings
+      allow read: if isSignedIn();
+      // Only admins can WRITE settings
+      allow write: if isAdmin();
+
+      // Specifically for WhatsApp settings
+      match /whatsapp/{document=**} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+  }
+}
