@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/exercise_model.dart';
 import '../services/firestore_service.dart';
+import '../config/app_theme.dart';
+import '../widgets/app_card.dart';
+import '../widgets/app_empty_state.dart';
 
-/// מסך ניהול תרגילים
+/// מסך ניהול תרגילים - מעוצב
 class ExercisesScreen extends StatefulWidget {
   const ExercisesScreen({super.key});
 
@@ -16,11 +19,9 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   @override
   void initState() {
     super.initState();
-    // אתחול תרגילים אם אין
     _firestoreService.initializeDefaultExercises();
   }
 
-  /// עדכון סטטוס תרגיל
   Future<void> _toggleExercise(ExerciseModel exercise) async {
     await _firestoreService.updateExerciseStatus(
       exercise.id,
@@ -34,65 +35,76 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
       stream: _firestoreService.getExercises(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const AppLoadingState(message: 'טוען תרגילים...');
         }
 
         if (snapshot.hasError) {
-          return Center(
-            child: Text('שגיאה: ${snapshot.error}'),
+          return AppErrorState(
+            message: 'שגיאה בטעינת תרגילים: ${snapshot.error}',
+            onRetry: () => setState(() {}),
           );
         }
 
         final exercises = snapshot.data ?? [];
 
         if (exercises.isEmpty) {
-          return const Center(
-            child: Text('אין תרגילים זמינים'),
+          return const AppEmptyState(
+            icon: Icons.fitness_center_rounded,
+            title: 'אין תרגילים זמינים',
+            subtitle: 'התרגילים יתווספו אוטומטית',
           );
         }
 
-        // חישוב אינדקס של התרגיל הבא שלא הושלם
         final nextIncompleteIndex = exercises.indexWhere((e) => !e.isCompleted);
-        final nextExercisesCount = 3;
+        const nextExercisesCount = 3;
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            // חלון עליון - התרגילים לשיעור הבא
+            // כרטיס התרגילים לשיעור הבא
             _buildNextLessonCard(exercises, nextIncompleteIndex, nextExercisesCount),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
 
             // רשימה מלאה של תרגילים
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.list_alt, color: Colors.deepPurple),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'כל התרגילים',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: AppRadius.smallRadius,
                         ),
-                        const Spacer(),
-                        _buildProgressIndicator(exercises),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    ...exercises.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final exercise = entry.value;
-                      return _buildExerciseItem(exercise, index);
-                    }),
-                  ],
-                ),
+                        child: const Icon(
+                          Icons.list_alt_rounded,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      const Text(
+                        'כל התרגילים',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      _buildProgressIndicator(exercises),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  ...exercises.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final exercise = entry.value;
+                    return _buildExerciseItem(exercise, index);
+                  }),
+                ],
               ),
             ),
           ],
@@ -101,27 +113,22 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     );
   }
 
-  /// בניית כרטיס התרגילים לשיעור הבא
   Widget _buildNextLessonCard(
     List<ExerciseModel> exercises,
     int nextIndex,
     int count,
   ) {
-    // מציאת כל התרגילים המושלמים
     final allCompletedExercises = exercises
         .where((e) => e.isCompleted && e.completedAt != null)
         .toList();
 
-    // אם אין תרגילים מושלמים, לא נציג חזרה
     List<ExerciseModel> completedExercises = [];
 
     if (allCompletedExercises.isNotEmpty) {
-      // מציאת התאריך האחרון שסומנו בו תרגילים
       final latestDate = allCompletedExercises
           .map((e) => e.completedAt!)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      // סינון כל התרגילים שסומנו באותו יום (התעלמות מהשעה)
       completedExercises = allCompletedExercises.where((e) {
         final exerciseDate = e.completedAt!;
         return exerciseDate.year == latestDate.year &&
@@ -129,7 +136,6 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
                exerciseDate.day == latestDate.day;
       }).toList();
 
-      // מיון לפי סדר המקורי (orderIndex)
       completedExercises.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     }
 
@@ -138,170 +144,225 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
         .take(count)
         .toList();
 
-    return Card(
-      color: Colors.blue[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.upcoming, color: Colors.blue[800]),
-                const SizedBox(width: 8),
-                Text(
-                  'התרגילים לשיעור הבא',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[800],
-                  ),
+    return AppCard(
+      color: AppColors.infoLight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.2),
+                  borderRadius: AppRadius.smallRadius,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // חזרה על תרגילים קודמים
-            if (completedExercises.isNotEmpty) ...[
-              const Text(
-                'חזרה:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                child: const Icon(
+                  Icons.upcoming_rounded,
+                  color: AppColors.info,
+                  size: 24,
+                ),
               ),
-              const SizedBox(height: 4),
-              ...completedExercises.map((exercise) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.replay, size: 16, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(exercise.name)),
-                      ],
-                    ),
-                  )),
-              const SizedBox(height: 8),
+              const SizedBox(width: AppSpacing.md),
+              const Text(
+                'התרגילים לשיעור הבא',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.info,
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
 
-            // תרגילים חדשים
+          if (completedExercises.isNotEmpty) ...[
             const Text(
-              'חדש:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              'חזרה:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
-            const SizedBox(height: 4),
-            ...upcomingExercises.map((exercise) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+            const SizedBox(height: AppSpacing.xs),
+            ...completedExercises.map((exercise) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: Row(
                     children: [
-                      const Icon(Icons.fiber_new, size: 16, color: Colors.blue),
-                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.replay_rounded,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           exercise.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 )),
+            const SizedBox(height: AppSpacing.md),
           ],
-        ),
-      ),
-    );
-  }
 
-  /// בניית פריט תרגיל
-  Widget _buildExerciseItem(ExerciseModel exercise, int index) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => _toggleExercise(exercise),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: exercise.isCompleted ? Colors.green[50] : Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: exercise.isCompleted ? Colors.green : Colors.grey[300]!,
+          const Text(
+            'חדש:',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
           ),
-          child: Row(
-            children: [
-              // מספר סידורי
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: exercise.isCompleted ? Colors.green : Colors.grey[300],
-                ),
-                child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: exercise.isCompleted ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // פרטי התרגיל
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: AppSpacing.xs),
+          ...upcomingExercises.map((exercise) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Row(
                   children: [
-                    Text(
-                      exercise.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        decoration: exercise.isCompleted
-                            ? TextDecoration.lineThrough
-                            : null,
-                      ),
+                    const Icon(
+                      Icons.fiber_new_rounded,
+                      size: 16,
+                      color: AppColors.info,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      exercise.description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        exercise.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
+              )),
+        ],
+      ),
+    );
+  }
 
-              // Checkbox
-              Checkbox(
-                value: exercise.isCompleted,
-                onChanged: (_) => _toggleExercise(exercise),
-                activeColor: Colors.green,
+  Widget _buildExerciseItem(ExerciseModel exercise, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _toggleExercise(exercise),
+          borderRadius: AppRadius.mediumRadius,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: exercise.isCompleted
+                  ? AppColors.successLight
+                  : AppColors.surfaceVariant,
+              borderRadius: AppRadius.mediumRadius,
+              border: Border.all(
+                color: exercise.isCompleted
+                    ? AppColors.success
+                    : AppColors.border,
+                width: 1.5,
               ),
-            ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: exercise.isCompleted
+                        ? AppColors.success
+                        : AppColors.border,
+                  ),
+                  child: Center(
+                    child: exercise.isCompleted
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          )
+                        : Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: AppColors.textPrimary,
+                          decoration: exercise.isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        exercise.description,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: AppSpacing.sm),
+
+                Checkbox(
+                  value: exercise.isCompleted,
+                  onChanged: (_) => _toggleExercise(exercise),
+                  activeColor: AppColors.success,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// אינדיקטור התקדמות
   Widget _buildProgressIndicator(List<ExerciseModel> exercises) {
     final completed = exercises.where((e) => e.isCompleted).length;
     final total = exercises.length;
     final percentage = total > 0 ? (completed / total * 100).toStringAsFixed(0) : '0';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
-        color: Colors.deepPurple[100],
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: AppRadius.largeRadius,
       ),
       child: Text(
         '$completed/$total ($percentage%)',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.deepPurple[800],
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontSize: 13,
         ),
       ),
     );

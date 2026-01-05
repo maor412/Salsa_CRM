@@ -144,13 +144,13 @@ class AuthProvider with ChangeNotifier {
         case 'wrong-password':
           return 'סיסמה שגויה';
         case 'invalid-email':
-          return 'כתובת אימייל לא תקינה';
+          return 'שם משתמש לא תקין';
         case 'invalid-credential':
-          return 'אימייל או סיסמה שגויים';
+          return 'שם משתמש או סיסמה שגויים';
         case 'user-disabled':
           return 'המשתמש הושבת';
         case 'email-already-in-use':
-          return 'האימייל כבר בשימוש';
+          return 'שם המשתמש כבר בשימוש';
         case 'weak-password':
           return 'הסיסמה חלשה מדי';
         case 'network-request-failed':

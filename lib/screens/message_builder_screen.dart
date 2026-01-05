@@ -187,7 +187,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   Future<void> _checkBirthdays() async {
     try {
       final students = await _firestoreService.getUpcomingBirthdayStudents();
-      print('???, ?????????? ${students.length} ?x?????T?"?T?? ???? ?T???? ?"????"?x ???"???`: ${students.map((s) => s.name).join(', ')}');
+      print('DEBUG: נמצאו ${students.length} תלמידים עם יום הולדת קרוב. שמות: ${students.map((s) => s.name).join(', ')}');
 
       setState(() {
         _birthdayStudents = students;
@@ -584,8 +584,11 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _messageController.text.isEmpty ? null : _copyToClipboard,
-                  icon: const Icon(Icons.copy),
-                  label: const Text('העתק הודעה'),
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text(
+                    'העתק',
+                    style: TextStyle(fontSize: 14),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -593,8 +596,11 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _messageController.text.isEmpty ? null : _openWhatsApp,
-                  icon: const Icon(Icons.chat),
-                  label: const Text('פתח WhatsApp'),
+                  icon: const Icon(Icons.chat, size: 18),
+                  label: const Text(
+                    'WhatsApp',
+                    style: TextStyle(fontSize: 14),
+                  ),
                 ),
               ),
             ],
@@ -610,12 +616,15 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                       _whatsappGroupLink!.isEmpty)
                   ? null
                   : _sendToGroup,
-              icon: const Icon(Icons.send),
-              label: const Text('שלח לקבוצה (Copy + Open)'),
+              icon: const Icon(Icons.send, size: 20),
+              label: const Text(
+                'שלח לקבוצה',
+                style: TextStyle(fontSize: 15),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF25D366),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),

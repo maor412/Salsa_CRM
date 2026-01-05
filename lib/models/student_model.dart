@@ -72,16 +72,11 @@ class StudentModel {
   bool hasBirthdayInRange(DateTime date, {int daysRange = 3}) {
     if (birthday == null) return false;
 
-    // המרה ל-day of year (1-366) כדי להשוות ללא שנה
-    final currentDayOfYear = _getDayOfYear(date);
-    final birthdayDayOfYear = _getDayOfYear(birthday!);
-
-    // בדיקה אם יום הולדת בטווח עם wrap-around
+    // בדיקה אם יום הולדת (חודש+יום) נמצא בטווח
     for (int i = -daysRange; i <= daysRange; i++) {
       final checkDate = date.add(Duration(days: i));
-      final checkDayOfYear = _getDayOfYear(checkDate);
 
-      if (checkDayOfYear == birthdayDayOfYear) {
+      if (checkDate.month == birthday!.month && checkDate.day == birthday!.day) {
         return true;
       }
     }
@@ -93,11 +88,6 @@ class StudentModel {
   bool isBirthdayToday(DateTime date) {
     if (birthday == null) return false;
     return date.month == birthday!.month && date.day == birthday!.day;
-  }
-
-  /// המרה של תאריך ליום בשנה (day of year)
-  int _getDayOfYear(DateTime date) {
-    return int.parse(date.toString().substring(5, 10).replaceAll('-', ''));
   }
 
   /// קבלת טקסט ברכה ליום הולדת

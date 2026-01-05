@@ -165,7 +165,7 @@ class DashboardProvider with ChangeNotifier {
     try {
       return await _firestoreService.getStudentsWithBirthdayInRange(
         DateTime.now(),
-        daysRange: 7,
+        daysRange: 3,
       );
     } catch (e) {
       print('Error getting birthday students: $e');

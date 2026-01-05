@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../config/app_theme.dart';
+import '../widgets/app_dialog.dart';
 import 'dashboard_screen.dart';
 import 'message_builder_screen.dart';
 import 'exercises_screen.dart';
@@ -35,11 +37,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_getTitle(_currentIndex, isAdmin)),
+          elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => _handleLogout(context),
-              tooltip: '\u05d4\u05ea\u05e0\u05ea\u05e7',
+            Container(
+              margin: const EdgeInsets.only(left: AppSpacing.sm),
+              child: IconButton(
+                icon: const Icon(Icons.logout_rounded),
+                onPressed: () => _handleLogout(context),
+                tooltip: 'התנתק',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ),
           ],
         ),
@@ -55,31 +65,31 @@ class _HomeScreenState extends State<HomeScreen> {
             });
           },
           destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.dashboard_outlined),
-              selectedIcon: const Icon(Icons.dashboard),
-              label: '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
+            const NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'דשבורד',
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.message_outlined),
-              selectedIcon: const Icon(Icons.message),
-              label: '\u05d1\u05e0\u05d9\u05d9\u05ea \u05d4\u05d5\u05d3\u05e2\u05d4',
+            const NavigationDestination(
+              icon: Icon(Icons.message_outlined),
+              selectedIcon: Icon(Icons.message_rounded),
+              label: 'בניית הודעה',
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.fitness_center_outlined),
-              selectedIcon: const Icon(Icons.fitness_center),
-              label: '\u05ea\u05e8\u05d2\u05d9\u05dc\u05d9\u05dd',
+            const NavigationDestination(
+              icon: Icon(Icons.fitness_center_outlined),
+              selectedIcon: Icon(Icons.fitness_center_rounded),
+              label: 'תרגילים',
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.people_outline),
-              selectedIcon: const Icon(Icons.people),
-              label: '\u05e0\u05d5\u05db\u05d7\u05d5\u05ea',
+            const NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: 'נוכחות',
             ),
             if (isAdmin)
-              NavigationDestination(
-                icon: const Icon(Icons.settings_outlined),
-                selectedIcon: const Icon(Icons.settings),
-                label: '\u05e0\u05d9\u05d4\u05d5\u05dc',
+              const NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings_rounded),
+                label: 'ניהול',
               ),
           ],
         ),
@@ -99,27 +109,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.showConfirmDialog(
       context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('\u05d4\u05ea\u05e0\u05ea\u05e7\u05d5\u05ea'),
-          content: const Text(
-            '\u05d4\u05d0\u05dd \u05d0\u05ea\u05d4 \u05d1\u05d8\u05d5\u05d7 \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05da \u05dc\u05d4\u05ea\u05e0\u05ea\u05e7?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('\u05d1\u05d9\u05d8\u05d5\u05dc'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('\u05d4\u05ea\u05e0\u05ea\u05e7'),
-            ),
-          ],
-        ),
-      ),
+      title: 'התנתקות',
+      content: 'האם אתה בטוח שברצונך להתנתק?',
+      confirmText: 'התנתק',
+      cancelText: 'ביטול',
+      isDestructive: true,
     );
 
     if (confirm == true && context.mounted) {

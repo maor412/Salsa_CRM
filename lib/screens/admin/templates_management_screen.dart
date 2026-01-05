@@ -48,6 +48,23 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // כפתור הגדרות WhatsApp
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const WhatsAppSettingsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: const Text('הגדרות קבוצת WhatsApp'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   // כפתור הוספת תבנית
                   SizedBox(
                     width: double.infinity,
@@ -64,28 +81,11 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () => _showAddStudentDialog(context),
                       icon: const Icon(Icons.person_add),
-                      label: const Text('➕ הוסף תלמיד'),
+                      label: const Text('הוסף תלמיד'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // כפתור הגדרות WhatsApp
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WhatsAppSettingsScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.settings),
-                      label: const Text('הגדרות קבוצת WhatsApp'),
                     ),
                   ),
                 ],

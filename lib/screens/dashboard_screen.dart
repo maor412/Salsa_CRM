@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/dashboard_provider.dart';
+import '../config/app_theme.dart';
+import '../widgets/app_card.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/app_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,22 +28,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Consumer<DashboardProvider>(
       builder: (context, provider, _) {
         if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const AppLoadingState(message: 'טוען נתוני דשבורד...');
         }
 
         final data = provider.data;
 
         return RefreshIndicator(
           onRefresh: provider.refresh,
+          color: AppColors.primary,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
+              // התראות
               if (data.alerts.isNotEmpty) ...[
-                _buildAlertsSection(data.alerts),
-                const SizedBox(height: 16),
+                ...data.alerts.map((alert) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: AppAlertCard.warning(message: alert),
+                )),
+                const SizedBox(height: AppSpacing.lg),
               ],
-              _buildChartsSection(data),
-              const SizedBox(height: 16),
+
+              // כרטיסי סטטיסטיקה
+              AppStatCard(
+                title: 'אחוז נוכחות בשיעור האחרון',
+                value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
+                icon: Icons.people_rounded,
+                chart: _buildPieChart(data.lastSessionAttendanceRate),
+                color: AppColors.info,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              AppStatCard(
+                title: 'התקדמות תרגילים',
+                value: '${data.exercisesProgress.toStringAsFixed(0)}%',
+                icon: Icons.fitness_center_rounded,
+                chart: _buildLinearProgress(data.exercisesProgress),
+                color: AppColors.success,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              GestureDetector(
+                onTap: () => _showAbsenteesSheet(context),
+                child: AppStatCard(
+                  title: 'תלמידים עם 3 היעדרויות ברצף',
+                  value: '${data.studentsWithThreeAbsences}',
+                  icon: Icons.person_off_rounded,
+                  chart: _buildNumberDisplay(data.studentsWithThreeAbsences),
+                  color: data.studentsWithThreeAbsences > 0
+                      ? AppColors.error
+                      : AppColors.success,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // ימי הולדת
               if (data.birthdayStudents.isNotEmpty) ...[
                 _buildBirthdaySection(data.birthdayStudents),
               ],
@@ -50,213 +92,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAlertsSection(List<String> alerts) {
-    return Card(
-      color: Colors.orange[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.orange[800]),
-                const SizedBox(width: 8),
-                Text(
-                  '\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[800],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...alerts.map((alert) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.circle, size: 8, color: Colors.orange[800]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          alert,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChartsSection(DashboardData data) {
-    return Column(
-      children: [
-        _buildStatCard(
-          title: '\u05d0\u05d7\u05d5\u05d6 \u05e0\u05d5\u05db\u05d7\u05d5\u05ea \u05d1\u05e9\u05d9\u05e2\u05d5\u05e8 \u05d4\u05d0\u05d7\u05e8\u05d5\u05df',
-          value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
-          chart: _buildPieChart(data.lastSessionAttendanceRate),
-          color: Colors.blue,
-        ),
-        const SizedBox(height: 16),
-        _buildStatCard(
-          title: '\u05d4\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05ea\u05e8\u05d2\u05d9\u05dc\u05d9\u05dd',
-          value: '${data.exercisesProgress.toStringAsFixed(0)}%',
-          chart: _buildLinearProgress(data.exercisesProgress),
-          color: Colors.green,
-        ),
-        const SizedBox(height: 16),
-        GestureDetector(
-          onTap: () => _showAbsenteesSheet(context),
-          child: _buildStatCard(
-            title: '\u05ea\u05dc\u05de\u05d9\u05d3\u05d9\u05dd \u05e2\u05dd 3 \u05d4\u05d9\u05e2\u05d3\u05e8\u05d5\u05d9\u05d5\u05ea \u05d1\u05e8\u05e6\u05e3',
-            value: '${data.studentsWithThreeAbsences}',
-            chart: _buildNumberDisplay(data.studentsWithThreeAbsences),
-            color: Colors.red,
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showAbsenteesSheet(BuildContext context) {
-    showModalBottomSheet(
+    AppDialog.showAppBottomSheet(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            24 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Consumer<DashboardProvider>(
-            builder: (context, provider, _) {
-              if (provider.isLoading) {
-                return const SizedBox(
-                  height: 180,
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        child: Consumer<DashboardProvider>(
+          builder: (context, provider, _) {
+            if (provider.isLoading) {
+              return const SizedBox(
+                height: 180,
+                child: AppLoadingState(),
+              );
+            }
 
-              final absentees = provider.data.studentsWithConsecutiveAbsences;
+            final absentees = provider.data.studentsWithConsecutiveAbsences;
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.person_off),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '\u05e8\u05e9\u05d9\u05de\u05ea \u05de\u05d7\u05e1\u05d9\u05e8\u05d9\u05dd',
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.1),
+                        borderRadius: AppRadius.smallRadius,
+                      ),
+                      child: const Icon(
+                        Icons.person_off_rounded,
+                        color: AppColors.error,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    const Expanded(
+                      child: Text(
+                        'רשימת מחסירים',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      const Spacer(),
-                      Text(
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: AppRadius.largeRadius,
+                      ),
+                      child: Text(
                         '${absentees.length}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (absentees.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          '\u05d0\u05d9\u05df \u05ea\u05dc\u05de\u05d9\u05d3\u05d9\u05dd \u05e2\u05dd 3 \u05d7\u05d9\u05e1\u05d5\u05e8\u05d9\u05dd \u05e8\u05e6\u05d5\u05e4\u05d9\u05dd',
-                        ),
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      child: ListView.separated(
-                        itemCount: absentees.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final item = absentees[index];
-                          return ListTile(
-                            leading: const Icon(Icons.person),
-                            title: Text(item.student.name),
-                            subtitle: Text(
-                              '\u05d7\u05d9\u05e1\u05d5\u05e8\u05d9\u05dd \u05e8\u05e6\u05d5\u05e4\u05d9\u05dd: ${item.consecutiveAbsences}',
-                            ),
-                            trailing: CircleAvatar(
-                              radius: 14,
-                              backgroundColor: Colors.red[100],
-                              child: Text(
-                                '${item.consecutiveAbsences}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
                       ),
                     ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required Widget chart,
-    required Color color,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 120,
-              child: chart,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
+                // List
+                if (absentees.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                    child: Center(
+                      child: Text(
+                        'אין תלמידים עם 3 חיסורים רצופים',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: absentees.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = absentees[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.sm,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.error.withOpacity(0.1),
+                            child: Text(
+                              item.student.name.isNotEmpty
+                                  ? item.student.name[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            item.student.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'חיסורים רצופים: ${item.consecutiveAbsences}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorLight,
+                              borderRadius: AppRadius.largeRadius,
+                            ),
+                            child: Text(
+                              '${item.consecutiveAbsences}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -268,7 +256,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         sections: [
           PieChartSectionData(
             value: percentage,
-            color: Colors.blue,
+            color: AppColors.info,
             title: '${percentage.toStringAsFixed(0)}%',
             radius: 50,
             titleStyle: const TextStyle(
@@ -279,7 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           PieChartSectionData(
             value: 100 - percentage,
-            color: Colors.grey[300],
+            color: AppColors.border,
             title: '',
             radius: 50,
           ),
@@ -295,16 +283,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          LinearProgressIndicator(
-            value: percentage / 100,
-            minHeight: 20,
-            backgroundColor: Colors.grey[300],
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+          ClipRRect(
+            borderRadius: AppRadius.largeRadius,
+            child: LinearProgressIndicator(
+              value: percentage / 100,
+              minHeight: 16,
+              backgroundColor: AppColors.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.success),
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
-            '${percentage.toStringAsFixed(0)}% \u05d4\u05d5\u05e9\u05dc\u05de\u05d5',
-            style: const TextStyle(fontSize: 14),
+            '${percentage.toStringAsFixed(0)}% הושלמו',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -318,7 +313,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         height: 100,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: number > 0 ? Colors.red[100] : Colors.green[100],
+          color: number > 0
+              ? AppColors.errorLight
+              : AppColors.successLight,
         ),
         child: Center(
           child: Text(
@@ -326,7 +323,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.bold,
-              color: number > 0 ? Colors.red : Colors.green,
+              color: number > 0 ? AppColors.error : AppColors.success,
             ),
           ),
         ),
@@ -335,43 +332,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBirthdaySection(List students) {
-    return Card(
-      color: Colors.purple[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.cake, color: Colors.purple[800]),
-                const SizedBox(width: 8),
-                Text(
-                  '\u05d9\u05de\u05d9 \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05e9\u05d1\u05d5\u05e2',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.purple[800],
-                  ),
+    return AppCard(
+      color: AppColors.accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: AppRadius.smallRadius,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...students.map((student) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.celebration, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        student.name,
-                        style: const TextStyle(fontSize: 14),
+                child: const Icon(
+                  Icons.cake_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Text(
+                'ימי הולדת השבוע',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...students.map((student) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.celebration_rounded,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      student.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
                       ),
-                    ],
-                  ),
-                )),
-          ],
-        ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
   }
