@@ -16,6 +16,7 @@ class FirebaseConfig {
   static const String messageTemplatesCollection = 'messageTemplates';
   static const String messageEventsCollection = 'messageEvents';
   static const String settingsCollection = 'settings';
+  static const String shinesCollection = 'shinesExercises';
 
   // Settings document IDs
   static const String whatsappSettingsDoc = 'whatsapp';

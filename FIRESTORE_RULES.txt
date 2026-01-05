@@ -1,66 +1,85 @@
-// Firestore Security Rules for Salsa CRM
-// Copy these rules to Firebase Console > Firestore Database > Rules
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    /* ===== Helpers ===== */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function hasUserDoc(uid) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(uid));
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData().role == 'admin';
+      return hasUserDoc(request.auth.uid) &&
+        userDoc(request.auth.uid).data.role == 'admin';
     }
 
     function isInstructor() {
-      return isSignedIn() && (getUserData().role == 'instructor' || getUserData().role == 'admin');
+      return hasUserDoc(request.auth.uid) &&
+        (userDoc(request.auth.uid).data.role == 'instructor' ||
+         userDoc(request.auth.uid).data.role == 'admin');
     }
 
-    // Users collection
+    /* ===== users ===== */
     match /users/{userId} {
+      // כל משתמש מחובר יכול לקרוא (כמו שהיה אצלך)
       allow read: if isSignedIn();
+
+      // משתמש יכול ליצור/לעדכן רק את המסמך של עצמו (נדרש לסיינ-אפ/פרופיל)
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+
+      // אדמין יכול לכתוב (לנהל) כל משתמש
       allow write: if isAdmin();
-    }
 
-    // Students collection
-    match /students/{studentId} {
-      allow read: if isSignedIn();
-      allow write: if isInstructor();
-    }
-
-    // Attendance sessions
-    match /attendanceSessions/{sessionId} {
-      allow read: if isSignedIn();
-      allow create: if isInstructor();
-      allow update: if isInstructor() && resource.data.instructorId == request.auth.uid;
+      // מחיקה רק אדמין (שומר על בטיחות)
       allow delete: if isAdmin();
     }
 
-    // Attendance records
+    /* ===== students ===== */
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      // נשאר כמו אצלך: מדריך/אדמין יכולים לכתוב
+      allow write: if isInstructor();
+    }
+
+    /* ===== attendanceSessions ===== */
+    match /attendanceSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create: if isInstructor();
+
+      // מדריך יכול לעדכן רק סשן שהוא יצר; Admin יכול הכל
+      allow update: if isInstructor() &&
+        (resource.data.instructorId == request.auth.uid || isAdmin());
+
+      allow delete: if isAdmin();
+    }
+
+    /* ===== attendanceRecords ===== */
     match /attendanceRecords/{recordId} {
       allow read: if isSignedIn();
       allow write: if isInstructor();
     }
 
-    // Exercises
+    /* ===== exercises ===== */
     match /exercises/{exerciseId} {
       allow read: if isSignedIn();
       allow write: if isInstructor();
     }
 
-    // Message templates
+    /* ===== messageTemplates ===== */
     match /messageTemplates/{templateId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Message events
+    /* ===== messageEvents ===== */
     match /messageEvents/{eventId} {
       allow read: if isSignedIn();
       allow create: if isInstructor();
@@ -68,18 +87,26 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Settings collection (NEW)
-    match /settings/{settingId} {
-      // Allow all authenticated users to READ settings
+    /* ===== settings ===== */
+    match /settings/{docId} {
       allow read: if isSignedIn();
-      // Only admins can WRITE settings
       allow write: if isAdmin();
+    }
 
-      // Specifically for WhatsApp settings
-      match /whatsapp/{document=**} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-      }
+    match /settings/whatsapp {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /* ===== shinesExercises ===== */
+    match /shinesExercises/{shineId} {
+      allow read: if isSignedIn();
+      allow write: if isInstructor();
+    }
+
+    /* ===== default deny ===== */
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

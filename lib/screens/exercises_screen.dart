@@ -4,6 +4,7 @@ import '../services/firestore_service.dart';
 import '../config/app_theme.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/shines_flow_dialog.dart';
 
 /// מסך ניהול תרגילים - מעוצב
 class ExercisesScreen extends StatefulWidget {
@@ -29,11 +30,16 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     );
   }
 
+  void _openShinesDialog() {
+    ShinesFlowDialog.show(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<ExerciseModel>>(
-      stream: _firestoreService.getExercises(),
-      builder: (context, snapshot) {
+    return Scaffold(
+      body: StreamBuilder<List<ExerciseModel>>(
+        stream: _firestoreService.getExercises(),
+        builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(message: 'טוען תרגילים...');
         }
@@ -110,6 +116,23 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
           ],
         );
       },
+    ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openShinesDialog,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        heroTag: 'shinesFab',
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text(
+          'שיינס',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 

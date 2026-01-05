@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/shines_provider.dart';
 import 'services/notification_service.dart';
 import 'services/birthday_notification_service.dart';
 import 'screens/login_screen.dart';
@@ -42,6 +43,11 @@ class SalsaCRMApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final provider = ShinesProvider();
+          provider.listenToShines();
+          return provider;
+        }),
       ],
       child: MaterialApp(
         title: 'Salsa CRM',
