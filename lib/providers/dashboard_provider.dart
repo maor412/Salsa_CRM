@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../models/student_model.dart';
-import '../models/attendance_model.dart';
-import '../models/exercise_model.dart';
-import '../models/message_model.dart';
 import '../services/firestore_service.dart';
 
 /// נתונים עבור Dashboard
@@ -183,19 +180,6 @@ class DashboardProvider with ChangeNotifier {
     // התראה על תלמידים עם היעדרויות
     if (studentsWithAbsences > 0) {
       alerts.add('$studentsWithAbsences תלמידים לא הגיעו 2 פעמים ברצף');
-    }
-
-    // בדיקה האם נשלחה הודעה היום
-    final today = DateTime.now();
-    final isWednesday = today.weekday == DateTime.wednesday;
-    final isSaturday = today.weekday == DateTime.saturday;
-
-    if (isWednesday || isSaturday) {
-      final todayEvent = await _firestoreService.getMessageEventByDate(today);
-      if (todayEvent == null || !todayEvent.isSent) {
-        final dayName = isWednesday ? 'רביעי' : 'מוצ"ש';
-        alerts.add('לא נשלחה הודעת היום ביילה ל$dayName');
-      }
     }
 
     // התראה על ימי הולדת
