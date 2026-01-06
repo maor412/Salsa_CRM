@@ -159,108 +159,117 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
       builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: Text(isEditing ? 'עריכת תבנית' : 'תבנית חדשה'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // בחירת קטגוריה
-                  const Text(
-                    'קטגוריה:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<MessageCategory>(
-                    value: selectedCategory,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
+          builder: (context, setState) => WillPopScope(
+            onWillPop: () async {
+              // Store the content before popping
+              return true;
+            },
+            child: AlertDialog(
+              title: Text(isEditing ? 'עריכת תבנית' : 'תבנית חדשה'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // בחירת קטגוריה
+                    const Text(
+                      'קטגוריה:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    items: MessageCategory.values.map((category) {
-                      final temp = MessageTemplate(
-                        id: '',
-                        content: '',
-                        category: category,
-                        createdAt: DateTime.now(),
-                      );
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(temp.categoryName),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => selectedCategory = value);
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // תוכן התבנית
-                  const Text(
-                    'תוכן ההודעה:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: contentController,
-                    textDirection: TextDirection.rtl,
-                    maxLines: 8,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'הכנס את תוכן ההודעה כאן...\n\n'
-                          'ניתן להשתמש ב:\n'
-                          '{{BIRTHDAY_BLOCK}} - ברכה ליום הולדת\n'
-                          '{{SENDER_NAME}} - שם השולח',
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<MessageCategory>(
+                      value: selectedCategory,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                      items: MessageCategory.values.map((category) {
+                        final temp = MessageTemplate(
+                          id: '',
+                          content: '',
+                          category: category,
+                          createdAt: DateTime.now(),
+                        );
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(temp.categoryName),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => selectedCategory = value);
+                        }
+                      },
                     ),
-                  ),
 
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
-                  // הסבר על placeholders
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
+                    // תוכן התבנית
+                    const Text(
+                      'תוכן ההודעה:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    child: const Text(
-                      'הערה: יש להשתמש ב-{{BIRTHDAY_BLOCK}} ו-{{SENDER_NAME}} '
-                      'בכל תבנית. הם יוחלפו אוטומטית.',
-                      style: TextStyle(fontSize: 12),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: contentController,
+                      textDirection: TextDirection.rtl,
+                      maxLines: 8,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'הכנס את תוכן ההודעה כאן...\n\n'
+                            'ניתן להשתמש ב:\n'
+                            '{{BIRTHDAY_BLOCK}} - ברכה ליום הולדת\n'
+                            '{{SENDER_NAME}} - שם השולח',
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 8),
+
+                    // הסבר על placeholders
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'הערה: יש להשתמש ב-{{BIRTHDAY_BLOCK}} ו-{{SENDER_NAME}} '
+                        'בכל תבנית. הם יוחלפו אוטומטית.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('\u05D1\u05D9\u05D8\u05D5\u05DC'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final content = contentController.text.trim();
+                    if (content.isEmpty) {
+                      Navigator.pop(dialogContext, {'error': 'empty'});
+                      return;
+                    }
+                    Navigator.pop(dialogContext, {
+                      'content': content,
+                      'category': selectedCategory,
+                    });
+                  },
+                  child: Text(isEditing ? 'עדכן' : 'הוסף'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('\u05D1\u05D9\u05D8\u05D5\u05DC'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final content = contentController.text.trim();
-                  if (content.isEmpty) {
-                    Navigator.pop(dialogContext, {'error': 'empty'});
-                    return;
-                  }
-                  Navigator.pop(dialogContext, {
-                    'content': content,
-                    'category': selectedCategory,
-                  });
-                },
-                child: Text(isEditing ? 'עדכן' : 'הוסף'),
-              ),
-            ],
           ),
         ),
       ),
     );
 
-    contentController.dispose();
+    // Delay dispose to ensure dialog animation completes
+    Future.delayed(const Duration(milliseconds: 300), () {
+      contentController.dispose();
+    });
 
     if (!mounted || result == null) return;
 
