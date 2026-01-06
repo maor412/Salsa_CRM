@@ -39,49 +39,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
-              // התראות
+              // התראות קומפקטיות למעלה
               if (data.alerts.isNotEmpty) ...[
-                ...data.alerts.map((alert) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: AppAlertCard.warning(message: alert),
-                )),
+                _buildCompactAlerts(data.alerts),
                 const SizedBox(height: AppSpacing.lg),
               ],
 
-              // כרטיסי סטטיסטיקה
-              AppStatCard(
-                title: 'אחוז נוכחות בשיעור האחרון',
-                value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
-                icon: Icons.people_rounded,
-                chart: _buildPieChart(data.lastSessionAttendanceRate),
-                color: AppColors.info,
-              ),
+              // שורת KPI קומפקטית (3 אריחים)
+              _buildKPIRow(data),
               const SizedBox(height: AppSpacing.lg),
 
-              AppStatCard(
-                title: 'התקדמות תרגילים',
-                value: '${data.exercisesProgress.toStringAsFixed(0)}%',
-                icon: Icons.fitness_center_rounded,
-                chart: _buildLinearProgress(data.exercisesProgress),
-                color: AppColors.success,
-              ),
+              // כרטיס נוכחות מפורט עם Donut Chart
+              _buildAttendanceCard(data),
               const SizedBox(height: AppSpacing.lg),
 
-              GestureDetector(
-                onTap: () => _showAbsenteesSheet(context),
-                child: AppStatCard(
-                  title: 'תלמידים עם 3 היעדרויות ברצף',
-                  value: '${data.studentsWithThreeAbsences}',
-                  icon: Icons.person_off_rounded,
-                  chart: _buildNumberDisplay(data.studentsWithThreeAbsences),
-                  color: data.studentsWithThreeAbsences > 0
-                      ? AppColors.error
-                      : AppColors.success,
-                ),
-              ),
+              // כרטיס התקדמות תרגילים מפורט
+              _buildExercisesProgressCard(data),
               const SizedBox(height: AppSpacing.lg),
 
-              // ימי הולדת
+              // ימי הולדת השבוע (בסוף)
               if (data.birthdayStudents.isNotEmpty) ...[
                 _buildBirthdaySection(data.birthdayStudents),
               ],
@@ -89,6 +65,520 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       },
+    );
+  }
+
+  // התראות קומפקטיות
+  Widget _buildCompactAlerts(List<String> alerts) {
+    if (alerts.length == 1) {
+      return _buildSingleAlert(alerts[0]);
+    }
+
+    // מספר התראות - כרטיס מתקפל
+    return AppCard(
+      color: AppColors.warningLight,
+      hasBorder: false,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      onTap: () => _showAlertsSheet(context, alerts),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              '${alerts.length} התראות דורשות תשומת לב',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.warning,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.chevron_left_rounded,
+            color: AppColors.warning,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleAlert(String message) {
+    return AppCard(
+      color: AppColors.warningLight,
+      hasBorder: false,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.warning,
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.warning,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // שורת KPI קומפקטית
+  Widget _buildKPIRow(data) {
+    return Row(
+      children: [
+        // אריח נוכחות
+        Expanded(
+          child: _buildMiniKPICard(
+            title: 'נוכחות',
+            value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
+            icon: Icons.people_rounded,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        // אריח התקדמות
+        Expanded(
+          child: _buildMiniKPICard(
+            title: 'תרגילים',
+            value: '${data.exercisesProgress.toStringAsFixed(0)}%',
+            icon: Icons.fitness_center_rounded,
+            color: AppColors.success,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        // אריח מחסירים
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _showAbsenteesSheet(context),
+            child: _buildMiniKPICard(
+              title: 'מחסירים',
+              value: '${data.studentsWithThreeAbsences}',
+              icon: Icons.person_off_rounded,
+              color: data.studentsWithThreeAbsences > 0
+                  ? AppColors.error
+                  : AppColors.success,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMiniKPICard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // כרטיס נוכחות מפורט עם Donut Chart סגול
+  Widget _buildAttendanceCard(data) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.smallRadius,
+                ),
+                child: const Icon(
+                  Icons.people_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'נוכחות בשיעור האחרון',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 140,
+                  child: _buildDonutChart(data.lastSessionAttendanceRate),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'נוכחות כללית',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDonutChart(double percentage) {
+    return PieChart(
+      PieChartData(
+        sections: [
+          PieChartSectionData(
+            value: percentage,
+            color: AppColors.primary,
+            title: '',
+            radius: 28,
+          ),
+          PieChartSectionData(
+            value: 100 - percentage,
+            color: AppColors.accent,
+            title: '',
+            radius: 28,
+          ),
+        ],
+        sectionsSpace: 0,
+        centerSpaceRadius: 45,
+      ),
+    );
+  }
+
+  // כרטיס התקדמות תרגילים מפורט
+  Widget _buildExercisesProgressCard(data) {
+    final completed = (data.exercisesProgress / 100 * 100).round();
+    final total = 100;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.smallRadius,
+                ),
+                child: const Icon(
+                  Icons.fitness_center_rounded,
+                  color: AppColors.success,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'התקדמות תרגילים',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: AppRadius.largeRadius,
+                  child: LinearProgressIndicator(
+                    value: data.exercisesProgress / 100,
+                    minHeight: 12,
+                    backgroundColor: AppColors.successLight,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.success),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Text(
+                '${data.exercisesProgress.toStringAsFixed(0)}%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.success,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'הושלמו $completed מתוך $total תרגילים',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // כרטיס ימי הולדת משודרג
+  Widget _buildBirthdaySection(List students) {
+    return AppCard(
+      color: AppColors.accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: AppRadius.smallRadius,
+                ),
+                child: const Icon(
+                  Icons.cake_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'ימי הולדת השבוע',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: AppRadius.largeRadius,
+                ),
+                child: Text(
+                  '${students.length}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...students.map((student) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      student.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  void _showAlertsSheet(BuildContext context, List<String> alerts) {
+    AppDialog.showAppBottomSheet(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.smallRadius,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.warning,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                const Expanded(
+                  child: Text(
+                    'התראות',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning,
+                    borderRadius: AppRadius.largeRadius,
+                  ),
+                  child: Text(
+                    '${alerts.length}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // List
+            ...alerts.asMap().entries.map((entry) {
+              final index = entry.key;
+              final alert = entry.value;
+              return Container(
+                margin: EdgeInsets.only(
+                  bottom: index < alerts.length - 1 ? AppSpacing.md : 0,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.warningLight,
+                  borderRadius: AppRadius.mediumRadius,
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.warning,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        alert,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
@@ -123,7 +613,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.sm),
                       decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.1),
+                        color: AppColors.error.withValues(alpha: 0.1),
                         borderRadius: AppRadius.smallRadius,
                       ),
                       child: const Icon(
@@ -195,7 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             vertical: AppSpacing.sm,
                           ),
                           leading: CircleAvatar(
-                            backgroundColor: AppColors.error.withOpacity(0.1),
+                            backgroundColor: AppColors.error.withValues(alpha: 0.1),
                             child: Text(
                               item.student.name.isNotEmpty
                                   ? item.student.name[0].toUpperCase()
@@ -249,143 +739,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  Widget _buildPieChart(double percentage) {
-    return PieChart(
-      PieChartData(
-        sections: [
-          PieChartSectionData(
-            value: percentage,
-            color: AppColors.info,
-            title: '${percentage.toStringAsFixed(0)}%',
-            radius: 50,
-            titleStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          PieChartSectionData(
-            value: 100 - percentage,
-            color: AppColors.border,
-            title: '',
-            radius: 50,
-          ),
-        ],
-        sectionsSpace: 2,
-        centerSpaceRadius: 0,
-      ),
-    );
-  }
-
-  Widget _buildLinearProgress(double percentage) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ClipRRect(
-            borderRadius: AppRadius.largeRadius,
-            child: LinearProgressIndicator(
-              value: percentage / 100,
-              minHeight: 16,
-              backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.success),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${percentage.toStringAsFixed(0)}% הושלמו',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNumberDisplay(int number) {
-    return Center(
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: number > 0
-              ? AppColors.errorLight
-              : AppColors.successLight,
-        ),
-        child: Center(
-          child: Text(
-            '$number',
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.bold,
-              color: number > 0 ? AppColors.error : AppColors.success,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBirthdaySection(List students) {
-    return AppCard(
-      color: AppColors.accent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: AppRadius.smallRadius,
-                ),
-                child: const Icon(
-                  Icons.cake_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Text(
-                'ימי הולדת השבוע',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...students.map((student) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.celebration_rounded,
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      student.name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
 }
+

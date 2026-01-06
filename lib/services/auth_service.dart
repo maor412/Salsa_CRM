@@ -45,14 +45,20 @@ class AuthService {
   /// קבלת פרטי משתמש מ-Firestore
   Future<UserModel?> getUserData(String uid) async {
     try {
+      print('AuthService: Getting user data for UID: $uid');
       final doc = await _firestore
           .collection(FirebaseConfig.usersCollection)
           .doc(uid)
           .get();
 
+      print('AuthService: Document exists: ${doc.exists}');
       if (doc.exists) {
-        return UserModel.fromFirestore(doc);
+        print('AuthService: Document data: ${doc.data()}');
+        final user = UserModel.fromFirestore(doc);
+        print('AuthService: User model created: ${user.email}');
+        return user;
       }
+      print('AuthService: User document not found in Firestore!');
       return null;
     } catch (e) {
       print('Error getting user data: $e');

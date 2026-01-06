@@ -14,13 +14,82 @@ class ExercisesScreen extends StatefulWidget {
   State<ExercisesScreen> createState() => _ExercisesScreenState();
 }
 
-class _ExercisesScreenState extends State<ExercisesScreen> {
+class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProviderStateMixin {
   final FirestoreService _firestoreService = FirestoreService();
+  final ScrollController _scrollController = ScrollController();
+
+  bool _isFabVisible = true;
+  bool _isScrolling = false;
+  late AnimationController _fabAnimationController;
+  late Animation<double> _fabScaleAnimation;
+  late Animation<double> _fabOpacityAnimation;
 
   @override
   void initState() {
     super.initState();
     _firestoreService.initializeDefaultExercises();
+
+    // אתחול אנימציית FAB
+    _fabAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+
+    _fabScaleAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _fabAnimationController, curve: Curves.easeInOut),
+    );
+
+    _fabOpacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _fabAnimationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _fabAnimationController.dispose();
+    super.dispose();
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // זיהוי תחילת גלילה
+    if (notification is ScrollStartNotification) {
+      _isScrolling = true;
+    }
+
+    // זיהוי עדכון גלילה - בדיקת כיוון
+    if (notification is ScrollUpdateNotification) {
+      if (notification.scrollDelta != null) {
+        if (notification.scrollDelta! > 0) {
+          // גלילה למטה - הסתר FAB
+          if (_isFabVisible) {
+            _isFabVisible = false;
+            _fabAnimationController.forward();
+          }
+        } else if (notification.scrollDelta! < 0) {
+          // גלילה למעלה - הצג FAB
+          if (!_isFabVisible) {
+            _isFabVisible = true;
+            _fabAnimationController.reverse();
+          }
+        }
+      }
+    }
+
+    // זיהוי סיום גלילה - החזר את ה-FAB
+    if (notification is ScrollEndNotification) {
+      _isScrolling = false;
+      if (!_isFabVisible) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!_isScrolling && mounted) {
+            _isFabVisible = true;
+            _fabAnimationController.reverse();
+          }
+        });
+      }
+    }
+
+    return false;
   }
 
   Future<void> _toggleExercise(ExerciseModel exercise) async {
@@ -37,6 +106,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: StreamBuilder<List<ExerciseModel>>(
         stream: _firestoreService.getExercises(),
         builder: (context, snapshot) {
@@ -64,75 +134,145 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
         final nextIncompleteIndex = exercises.indexWhere((e) => !e.isCompleted);
         const nextExercisesCount = 3;
 
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          children: [
-            // כרטיס התרגילים לשיעור הבא
-            _buildNextLessonCard(exercises, nextIncompleteIndex, nextExercisesCount),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // רשימה מלאה של תרגילים
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: AppRadius.smallRadius,
-                        ),
-                        child: const Icon(
-                          Icons.list_alt_rounded,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      const Text(
-                        'כל התרגילים',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const Spacer(),
-                      _buildProgressIndicator(exercises),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  ...exercises.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final exercise = entry.value;
-                    return _buildExerciseItem(exercise, index);
-                  }),
-                ],
-              ),
+        return NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: ListView(
+            controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.xxxl + AppSpacing.xl, // padding תחתון גדול למניעת דחיסה
             ),
-          ],
+            children: [
+              // בלוק התקדמות כללית
+              _buildProgressCard(exercises),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              // כרטיס התרגילים לשיעור הבא
+              _buildNextLessonCard(exercises, nextIncompleteIndex, nextExercisesCount),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              // רשימה מלאה של תרגילים
+              _buildAllExercisesCard(exercises),
+            ],
+          ),
         );
       },
     ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openShinesDialog,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        heroTag: 'shinesFab',
-        icon: const Icon(Icons.auto_awesome_rounded),
-        label: const Text(
-          'שיינס',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+      floatingActionButton: ScaleTransition(
+        scale: _fabScaleAnimation,
+        child: FadeTransition(
+          opacity: _fabOpacityAnimation,
+          child: IgnorePointer(
+            ignoring: !_isFabVisible,
+            child: FloatingActionButton.extended(
+              onPressed: _openShinesDialog,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              heroTag: 'shinesFab',
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text(
+                'שיינס',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  // בלוק התקדמות כללית עם LinearProgressIndicator
+  Widget _buildProgressCard(List<ExerciseModel> exercises) {
+    final completed = exercises.where((e) => e.isCompleted).length;
+    final total = exercises.length;
+    final percentage = total > 0 ? (completed / total) : 0.0;
+    final percentageText = (percentage * 100).toStringAsFixed(0);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: AppRadius.smallRadius,
+                ),
+                child: const Icon(
+                  Icons.trending_up_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'ההתקדמות שלי',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: AppRadius.largeRadius,
+                ),
+                child: Text(
+                  '$completed/$total',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: AppRadius.largeRadius,
+                  child: LinearProgressIndicator(
+                    value: percentage,
+                    minHeight: 10,
+                    backgroundColor: AppColors.accent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Text(
+                '$percentageText%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -168,7 +308,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
         .toList();
 
     return AppCard(
-      color: AppColors.infoLight,
+      color: AppColors.accent, // שינוי מתכלת לסגול בהיר
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -177,45 +317,58 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.2),
+                  color: AppColors.primary.withOpacity(0.15),
                   borderRadius: AppRadius.smallRadius,
                 ),
                 child: const Icon(
                   Icons.upcoming_rounded,
-                  color: AppColors.info,
+                  color: AppColors.primary,
                   size: 24,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              const Text(
-                'התרגילים לשיעור הבא',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.info,
+              const Expanded(
+                child: Text(
+                  'התרגילים לשיעור הבא',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
 
+          // Chips במקום טקסטים
           if (completedExercises.isNotEmpty) ...[
-            const Text(
-              'חזרה:',
-              style: TextStyle(
+            Chip(
+              avatar: const Icon(
+                Icons.replay_rounded,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+              label: const Text('חזרה'),
+              backgroundColor: AppColors.surfaceVariant,
+              labelStyle: const TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
+                fontSize: 13,
               ),
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             ...completedExercises.map((exercise) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs, right: AppSpacing.md),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.replay_rounded,
-                        size: 16,
-                        color: AppColors.textSecondary,
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
@@ -233,22 +386,32 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
 
-          const Text(
-            'חדש:',
-            style: TextStyle(
+          Chip(
+            avatar: const Icon(
+              Icons.fiber_new_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            label: const Text('חדש'),
+            backgroundColor: AppColors.primary.withOpacity(0.15),
+            labelStyle: const TextStyle(
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: AppColors.primary,
+              fontSize: 13,
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           ...upcomingExercises.map((exercise) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs, right: AppSpacing.md),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.fiber_new_rounded,
-                      size: 16,
-                      color: AppColors.info,
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary.withOpacity(0.7),
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
@@ -269,6 +432,49 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     );
   }
 
+  Widget _buildAllExercisesCard(List<ExerciseModel> exercises) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: AppRadius.smallRadius,
+                ),
+                child: const Icon(
+                  Icons.list_alt_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'כל התרגילים',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ...exercises.asMap().entries.map((entry) {
+            final index = entry.key;
+            final exercise = entry.value;
+            return _buildExerciseItem(exercise, index);
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildExerciseItem(ExerciseModel exercise, int index) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -278,48 +484,62 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
           onTap: () => _toggleExercise(exercise),
           borderRadius: AppRadius.mediumRadius,
           child: Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: exercise.isCompleted
-                  ? AppColors.successLight
-                  : AppColors.surfaceVariant,
+              color: AppColors.surface,
               borderRadius: AppRadius.mediumRadius,
               border: Border.all(
-                color: exercise.isCompleted
-                    ? AppColors.success
-                    : AppColors.border,
-                width: 1.5,
+                color: AppColors.border,
+                width: 1,
               ),
+              // פס צד ירוק רק למשימות שהושלמו
+              boxShadow: exercise.isCompleted
+                  ? [
+                      const BoxShadow(
+                        color: AppColors.success,
+                        offset: Offset(-4, 0),
+                        blurRadius: 0,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
+                // אייקון מצב יחיד (הסרת כפילות)
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: exercise.isCompleted
                         ? AppColors.success
-                        : AppColors.border,
+                        : AppColors.surfaceVariant,
+                    border: Border.all(
+                      color: exercise.isCompleted
+                          ? AppColors.success
+                          : AppColors.border,
+                      width: 2,
+                    ),
                   ),
                   child: Center(
                     child: exercise.isCompleted
                         ? const Icon(
                             Icons.check_rounded,
                             color: Colors.white,
-                            size: 20,
+                            size: 22,
                           )
                         : Text(
                             '${index + 1}',
                             style: const TextStyle(
                               color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.lg),
 
                 Expanded(
                   child: Column(
@@ -329,63 +549,30 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
                         exercise.name,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          color: exercise.isCompleted
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
                           decoration: exercise.isCompleted
                               ? TextDecoration.lineThrough
                               : null,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         exercise.description,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary.withOpacity(0.8),
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: AppSpacing.sm),
-
-                Checkbox(
-                  value: exercise.isCompleted,
-                  onChanged: (_) => _toggleExercise(exercise),
-                  activeColor: AppColors.success,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressIndicator(List<ExerciseModel> exercises) {
-    final completed = exercises.where((e) => e.isCompleted).length;
-    final total = exercises.length;
-    final percentage = total > 0 ? (completed / total * 100).toStringAsFixed(0) : '0';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: AppRadius.largeRadius,
-      ),
-      child: Text(
-        '$completed/$total ($percentage%)',
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-          fontSize: 13,
         ),
       ),
     );

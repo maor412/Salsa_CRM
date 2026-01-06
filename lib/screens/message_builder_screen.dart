@@ -398,6 +398,8 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -405,7 +407,12 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           // Scrollable content area
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                keyboardHeight + 100,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -8,7 +8,17 @@
       "Bash(test:*)",
       "Bash(dir:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: Salsa CRM Management App\n\n- Flutter-based CRM application for salsa dance studio\n- Features: Student management, attendance tracking, exercise management\n- WhatsApp integration for messaging\n- Firebase backend \\(Authentication, Firestore\\)\n- User authentication with role-based access \\(Admin/Teacher\\)\n- Dashboard with statistics and birthday notifications\n- Custom app icon and splash screen\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(findstr:*)",
+      "Bash(move /Y libscreensdashboard_screen.dart libscreensdashboard_screen_old.dart)",
+      "Bash(move /Y libscreensdashboard_screen_new.dart libscreensdashboard_screen.dart)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(flutter clean:*)"
     ]
   }
 }

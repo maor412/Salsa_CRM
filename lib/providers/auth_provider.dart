@@ -71,13 +71,20 @@ class AuthProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
+      print('AuthProvider: Starting sign-in for $email');
       _currentUser = await _authService.signIn(email, password);
+      print('AuthProvider: Sign-in completed, user: ${_currentUser?.email}');
 
       _isLoading = false;
       notifyListeners();
 
+      if (_currentUser == null) {
+        print('AuthProvider: Warning - currentUser is null after sign-in');
+      }
+
       return _currentUser != null;
     } catch (e) {
+      print('AuthProvider: Sign-in error: $e');
       _isLoading = false;
       _errorMessage = _getErrorMessage(e);
       notifyListeners();

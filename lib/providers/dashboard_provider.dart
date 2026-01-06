@@ -114,7 +114,7 @@ class DashboardProvider with ChangeNotifier {
     }
   }
 
-  /// ספירת תלמידים עם 3 היעדרויות רצופות
+  /// ספירת תלמידים עם 2 היעדרויות רצופות
   Future<List<StudentAbsenceInfo>> _getStudentsWithThreeAbsences() async {
     try {
       final students = await _firestoreService.getActiveStudents().first;
@@ -123,11 +123,11 @@ class DashboardProvider with ChangeNotifier {
       for (final student in students) {
         final stats = await _firestoreService.getStudentAttendanceStats(
           student.id,
-          lastNSessions: 3,
+          lastNSessions: 2,
         );
 
         final consecutiveAbsences = stats['consecutiveAbsences'] as int? ?? 0;
-        if (consecutiveAbsences >= 3) {
+        if (consecutiveAbsences >= 2) {
           results.add(StudentAbsenceInfo(
             student: student,
             consecutiveAbsences: consecutiveAbsences,
@@ -182,7 +182,7 @@ class DashboardProvider with ChangeNotifier {
 
     // התראה על תלמידים עם היעדרויות
     if (studentsWithAbsences > 0) {
-      alerts.add('$studentsWithAbsences תלמידים לא הגיעו 3 פעמים ברצף');
+      alerts.add('$studentsWithAbsences תלמידים לא הגיעו 2 פעמים ברצף');
     }
 
     // בדיקה האם נשלחה הודעה היום
@@ -209,3 +209,4 @@ class DashboardProvider with ChangeNotifier {
   /// רענון נתונים
   Future<void> refresh() => loadDashboardData();
 }
+

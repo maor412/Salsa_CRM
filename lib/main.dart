@@ -7,6 +7,7 @@ import 'providers/dashboard_provider.dart';
 import 'providers/shines_provider.dart';
 import 'services/notification_service.dart';
 import 'services/birthday_notification_service.dart';
+import 'services/background_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/splash_screen.dart';
@@ -26,9 +27,11 @@ void main() async {
 
   // אתחול שירות התראות
   await NotificationService().initialize();
-  await NotificationService().scheduleWeeklyMessageReminders();
 
-  // בדיקת ימי הולדת ושליחת התראות
+  // אתחול שירות משימות רקע (יריץ נוטיפיקציות גם כשהאפליקציה סגורה)
+  await BackgroundService.initialize();
+
+  // בדיקת ימי הולדת ושליחת התראות (לפעם הראשונה)
   await BirthdayNotificationService().scheduleTodayBirthdayNotifications();
 
   runApp(const SalsaCRMApp());
