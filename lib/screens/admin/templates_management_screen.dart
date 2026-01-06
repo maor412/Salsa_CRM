@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/message_model.dart';
 import '../../models/student_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/attendance_report_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_theme.dart';
 import 'whatsapp_settings_screen.dart';
@@ -18,6 +19,8 @@ class TemplatesManagementScreen extends StatefulWidget {
 
 class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  final AttendanceReportService _reportService = AttendanceReportService();
+  bool _isGeneratingPdf = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +64,8 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
                   },
                   onAddTemplate: () => _showTemplateDialog(context),
                   onAddStudent: () => _showAddStudentDialog(context),
+                  onExportPdf: _handleExportPdf,
+                  isGeneratingPdf: _isGeneratingPdf,
                 ),
 
                 const SizedBox(height: AppSpacing.xl),
@@ -149,9 +154,9 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
     );
     MessageCategory selectedCategory = template?.category ?? MessageCategory.regular;
 
-    final result = await showDialog<bool>(
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      builder: (context) => Directionality(
+      builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: StatefulBuilder(
           builder: (context, setState) => AlertDialog(
@@ -232,21 +237,20 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('\u05D1\u05D9\u05D8\u05D5\u05DC'),
               ),
               ElevatedButton(
                 onPressed: () {
-                  if (contentController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('נא להזין תוכן להודעה'),
-                        backgroundColor: AppColors.warning,
-                      ),
-                    );
+                  final content = contentController.text.trim();
+                  if (content.isEmpty) {
+                    Navigator.pop(dialogContext, {'error': 'empty'});
                     return;
                   }
-                  Navigator.pop(context, true);
+                  Navigator.pop(dialogContext, {
+                    'content': content,
+                    'category': selectedCategory,
+                  });
                 },
                 child: Text(isEditing ? 'עדכן' : 'הוסף'),
               ),
@@ -256,15 +260,26 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
       ),
     );
 
-    if (result == true && mounted) {
-      await _saveTemplate(
-        template: template,
-        content: contentController.text.trim(),
-        category: selectedCategory,
+    contentController.dispose();
+
+    if (!mounted || result == null) return;
+
+    if (result['error'] == 'empty') {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('נא להזין תוכן להודעה'),
+          backgroundColor: AppColors.warning,
+        ),
       );
+      return;
     }
 
-    contentController.dispose();
+    await _saveTemplate(
+      template: template,
+      content: result['content'] as String,
+      category: result['category'] as MessageCategory,
+    );
   }
 
   /// שמירת תבנית
@@ -417,6 +432,28 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
       }
     }
   }
+
+  /// טיפול בייצוא PDF
+  Future<void> _handleExportPdf() async {
+    setState(() => _isGeneratingPdf = true);
+
+    try {
+      await _reportService.showPdfPreview();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה ביצירת דוח: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+      }
+    }
+  }
 }
 
 // ============================================================================
@@ -426,11 +463,15 @@ class _AdminActionGrid extends StatelessWidget {
   final VoidCallback onWhatsAppSettings;
   final VoidCallback onAddTemplate;
   final VoidCallback onAddStudent;
+  final VoidCallback onExportPdf;
+  final bool isGeneratingPdf;
 
   const _AdminActionGrid({
     required this.onWhatsAppSettings,
     required this.onAddTemplate,
     required this.onAddStudent,
+    required this.onExportPdf,
+    required this.isGeneratingPdf,
   });
 
   @override
@@ -469,12 +510,27 @@ class _AdminActionGrid extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        _buildActionCard(
-          icon: Icons.person_add,
-          label: 'הוסף תלמיד',
-          color: AppColors.info,
-          onTap: onAddStudent,
-          fullWidth: true,
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionCard(
+                icon: Icons.person_add,
+                label: 'הוסף תלמיד',
+                color: AppColors.info,
+                onTap: onAddStudent,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _buildActionCard(
+                icon: Icons.picture_as_pdf,
+                label: isGeneratingPdf ? 'יוצר PDF...' : 'ייצא דוח PDF',
+                color: AppColors.error,
+                onTap: isGeneratingPdf ? () {} : onExportPdf,
+                isLoading: isGeneratingPdf,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -486,6 +542,7 @@ class _AdminActionGrid extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
     bool fullWidth = false,
+    bool isLoading = false,
   }) {
     return Card(
       elevation: 0,
@@ -495,7 +552,7 @@ class _AdminActionGrid extends StatelessWidget {
         side: BorderSide(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -508,11 +565,20 @@ class _AdminActionGrid extends StatelessWidget {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
-                ),
+                child: isLoading
+                    ? SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        color: color,
+                        size: 28,
+                      ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
