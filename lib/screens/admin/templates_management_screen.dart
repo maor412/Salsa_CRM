@@ -4,6 +4,7 @@ import '../../models/message_model.dart';
 import '../../models/student_model.dart';
 import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../config/app_theme.dart';
 import 'whatsapp_settings_screen.dart';
 
 /// מסך ניהול תבניות הודעות (Admin בלבד)
@@ -41,164 +42,99 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
 
         final templates = snapshot.data ?? [];
 
-        return Column(
-          children: [
-            // כפתורי ניהול
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // כפתור הגדרות WhatsApp
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WhatsAppSettingsScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.settings),
-                      label: const Text('הגדרות קבוצת WhatsApp'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // כפתור הוספת תבנית
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showTemplateDialog(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('הוסף תבנית חדשה'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // כפתור הוספת תלמיד
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showAddStudentDialog(context),
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('הוסף תלמיד'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // רשימת תבניות
-            Expanded(
-              child: templates.isEmpty
-                  ? const Center(
-                      child: Text('אין תבניות. הוסף תבנית ראשונה!'),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: templates.length,
-                      itemBuilder: (context, index) {
-                        final template = templates[index];
-                        return _buildTemplateCard(template);
-                      },
-                    ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// בניית כרטיס תבנית
-  Widget _buildTemplateCard(MessageTemplate template) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // כותרת וקטגוריה
-            Row(
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        template.categoryName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                // Admin actions grid
+                _AdminActionGrid(
+                  onWhatsAppSettings: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WhatsAppSettingsScreen(),
                       ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: template.isActive
-                              ? Colors.green[100]
-                              : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          template.isActive ? 'פעילה' : 'מושבתת',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: template.isActive
-                                ? Colors.green[800]
-                                : Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
+                  onAddTemplate: () => _showTemplateDialog(context),
+                  onAddStudent: () => _showAddStudentDialog(context),
                 ),
 
-                // כפתורי פעולה
+                const SizedBox(height: AppSpacing.xl),
+
+                // Templates section header
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showTemplateDialog(
-                        context,
-                        template: template,
+                    const Text(
+                      'תבניות הודעות',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
-                      tooltip: 'עריכה',
                     ),
-                    IconButton(
-                      icon: Icon(
-                        template.isActive
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                    const SizedBox(width: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 2,
                       ),
-                      onPressed: () => _toggleTemplateStatus(template),
-                      tooltip: template.isActive ? 'השבת' : 'הפעל',
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${templates.length}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                // Templates list
+                templates.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(AppSpacing.xl),
+                          child: Text(
+                            'אין תבניות. הוסף תבנית ראשונה!',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: templates.length,
+                        itemBuilder: (context, index) {
+                          final template = templates[index];
+                          return _TemplateCard(
+                            template: template,
+                            onEdit: () => _showTemplateDialog(
+                              context,
+                              template: template,
+                            ),
+                            onToggleStatus: () => _toggleTemplateStatus(template),
+                          );
+                        },
+                      ),
               ],
             ),
-
-            const Divider(),
-
-            // תוכן התבנית
-            Text(
-              template.content,
-              style: const TextStyle(fontSize: 14),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -297,7 +233,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-            child: const Text('\u05D1\u05D9\u05D8\u05D5\u05DC'),
+                child: const Text('\u05D1\u05D9\u05D8\u05D5\u05DC'),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -305,7 +241,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('נא להזין תוכן להודעה'),
-                        backgroundColor: Colors.orange,
+                        backgroundColor: AppColors.warning,
                       ),
                     );
                     return;
@@ -357,7 +293,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('התבנית נוספה בהצלחה'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
         }
@@ -374,7 +310,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('התבנית עודכנה בהצלחה'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
         }
@@ -384,7 +320,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -408,7 +344,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
                   ? 'התבנית הופעלה'
                   : 'התבנית הושבתה',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -417,7 +353,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -463,7 +399,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('התלמיד נוסף בהצלחה'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
             duration: Duration(seconds: 2),
           ),
         );
@@ -474,7 +410,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה בהוספת תלמיד: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -483,6 +419,260 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
   }
 }
 
+// ============================================================================
+// COMPONENT: Admin Action Grid
+// ============================================================================
+class _AdminActionGrid extends StatelessWidget {
+  final VoidCallback onWhatsAppSettings;
+  final VoidCallback onAddTemplate;
+  final VoidCallback onAddStudent;
+
+  const _AdminActionGrid({
+    required this.onWhatsAppSettings,
+    required this.onAddTemplate,
+    required this.onAddStudent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'פעולות ניהול',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionCard(
+                icon: Icons.settings,
+                label: 'הגדרות WhatsApp',
+                color: AppColors.whatsapp,
+                onTap: onWhatsAppSettings,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _buildActionCard(
+                icon: Icons.add_circle,
+                label: 'תבנית חדשה',
+                color: AppColors.primary,
+                onTap: onAddTemplate,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _buildActionCard(
+          icon: Icons.person_add,
+          label: 'הוסף תלמיד',
+          color: AppColors.info,
+          onTap: onAddStudent,
+          fullWidth: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    bool fullWidth = false,
+  }) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withValues(alpha: 0.3), width: 1),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Template Card
+// ============================================================================
+class _TemplateCard extends StatelessWidget {
+  final MessageTemplate template;
+  final VoidCallback onEdit;
+  final VoidCallback onToggleStatus;
+
+  const _TemplateCard({
+    required this.template,
+    required this.onEdit,
+    required this.onToggleStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with category and status
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        template.categoryName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: template.isActive
+                              ? AppColors.successLight
+                              : AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              template.isActive ? Icons.check_circle : Icons.cancel,
+                              size: 14,
+                              color: template.isActive
+                                  ? AppColors.success
+                                  : AppColors.textHint,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              template.isActive ? 'פעילה' : 'מושבתת',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: template.isActive
+                                    ? AppColors.success
+                                    : AppColors.textHint,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Action buttons
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: onEdit,
+                      tooltip: 'עריכה',
+                      color: AppColors.primary,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    IconButton(
+                      icon: Icon(
+                        template.isActive
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20,
+                      ),
+                      onPressed: onToggleStatus,
+                      tooltip: template.isActive ? 'השבת' : 'הפעל',
+                      color: template.isActive ? AppColors.warning : AppColors.success,
+                      style: IconButton.styleFrom(
+                        backgroundColor: template.isActive
+                            ? AppColors.warning.withValues(alpha: 0.1)
+                            : AppColors.success.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const Divider(height: AppSpacing.xl),
+
+            // Content preview
+            Text(
+              template.content,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Add Student Dialog
+// ============================================================================
 class _NewStudentData {
   final String name;
   final String phone;

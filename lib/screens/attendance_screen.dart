@@ -4,6 +4,7 @@ import '../models/student_model.dart';
 import '../models/attendance_model.dart';
 import '../services/firestore_service.dart';
 import '../providers/auth_provider.dart';
+import '../config/app_theme.dart';
 
 /// מסך רישום נוכחות
 class AttendanceScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final ValueNotifier<String> _searchQuery = ValueNotifier<String>('');
 
   LessonType _selectedLessonType = LessonType.regular;
-  Map<String, bool> _attendance = {};
+  final Map<String, bool> _attendance = {};
   bool _isSaving = false;
 
   @override
@@ -94,7 +95,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${student.name} נמחק בהצלחה'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -103,7 +104,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה במחיקת תלמיד: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -228,7 +229,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('התלמיד עודכן בהצלחה'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -237,7 +238,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה בעדכון תלמיד: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -256,7 +257,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('יש לסמן לפחות תלמיד אחד'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -296,7 +297,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('הנוכחות נשמרה בהצלחה'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
 
@@ -311,7 +312,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('שגיאה בשמירת נוכחות: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -335,242 +336,522 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
         final allStudents = snapshot.data ?? [];
 
-        return Column(
-          children: [
-            // סוג שיעור וחיפוש
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // בחירת סוג שיעור
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'סוג שיעור:',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButton<LessonType>(
-                              isExpanded: true,
-                              value: _selectedLessonType,
-                              items: LessonType.values.map((type) {
-                                final session = AttendanceSession(
-                                  id: '',
-                                  date: DateTime.now(),
-                                  lessonType: type,
-                                  instructorId: '',
-                                  instructorName: '',
-                                  createdAt: DateTime.now(),
-                                );
-                                return DropdownMenuItem(
-                                  value: type,
-                                  child: Text(session.lessonTypeName),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _selectedLessonType = value);
-                                }
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Column(
+            children: [
+              // Scrollable content area
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Lesson type chips
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'סוג שיעור',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _LessonTypeChips(
+                              selectedLessonType: _selectedLessonType,
+                              onLessonTypeChanged: (type) {
+                                setState(() => _selectedLessonType = type);
                               },
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // חיפוש
-                  ValueListenableBuilder<String>(
-                    valueListenable: _searchQuery,
-                    builder: (context, searchValue, _) {
-                      return TextField(
-                        controller: _searchController,
-                        textDirection: TextDirection.rtl,
-                        decoration: InputDecoration(
-                          hintText: 'חפש תלמיד...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: searchValue.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _searchQuery.value = '';
-                                  },
-                                )
-                              : null,
-                          border: const OutlineInputBorder(),
+                          ],
                         ),
-                        onChanged: (value) {
-                          _searchQuery.value = value;
+                      ),
+
+                      const SizedBox(height: AppSpacing.xl),
+
+                      // Search bar
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        child: _SearchBar(
+                          controller: _searchController,
+                          searchQuery: _searchQuery,
+                        ),
+                      ),
+
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Students list
+                      ValueListenableBuilder<String>(
+                        valueListenable: _searchQuery,
+                        builder: (context, searchValue, _) {
+                          // סינון לפי חיפוש
+                          final filteredStudents = allStudents.where((student) {
+                            if (searchValue.isEmpty) return true;
+                            return student.name.contains(searchValue);
+                          }).toList();
+
+                          return filteredStudents.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.all(AppSpacing.xl),
+                                  child: Center(
+                                    child: Text(
+                                      'לא נמצאו תלמידים',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                                  itemCount: filteredStudents.length,
+                                  itemBuilder: (context, index) {
+                                    final student = filteredStudents[index];
+                                    final isPresent = _attendance[student.id] ?? false;
+
+                                    return _StudentAttendanceTile(
+                                      student: student,
+                                      isPresent: isPresent,
+                                      onToggle: () {
+                                        setState(() {
+                                          final current = _attendance[student.id] ?? false;
+                                          if (current) {
+                                            _attendance.remove(student.id);
+                                          } else {
+                                            _attendance[student.id] = true;
+                                          }
+                                        });
+                                      },
+                                      onLongPress: () => _showStudentOptions(student),
+                                    );
+                                  },
+                                );
                         },
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // רשימת תלמידים
-            Expanded(
-              child: ValueListenableBuilder<String>(
-                valueListenable: _searchQuery,
-                builder: (context, searchValue, _) {
-                  // סינון לפי חיפוש
-                  final filteredStudents = allStudents.where((student) {
-                    if (searchValue.isEmpty) return true;
-                    return student.name.contains(searchValue);
-                  }).toList();
-
-                  return filteredStudents.isEmpty
-                      ? const Center(
-                          child: Text('לא נמצאו תלמידים'),
-                        )
-                      : ListView.builder(
-                          itemCount: filteredStudents.length,
-                          itemBuilder: (context, index) {
-                            final student = filteredStudents[index];
-                            final isPresent = _attendance[student.id] ?? false;
-
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: isPresent ? Colors.green : Colors.grey,
-                                child: Text(
-                                  student.name.isNotEmpty
-                                      ? student.name[0].toUpperCase()
-                                      : '?',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              title: Text(student.name),
-                              subtitle: student.phoneNumber.isNotEmpty
-                                  ? Text(student.phoneNumber)
-                                  : null,
-                              trailing: Checkbox(
-                                value: isPresent,
-                                onChanged: (value) {
-                                  setState(() {
-                                    if (value == true) {
-                                      _attendance[student.id] = true;
-                                    } else {
-                                      _attendance.remove(student.id);
-                                    }
-                                  });
-                                },
-                                activeColor: Colors.green,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  final current = _attendance[student.id] ?? false;
-                                  if (current) {
-                                    _attendance.remove(student.id);
-                                  } else {
-                                    _attendance[student.id] = true;
-                                  }
-                                });
-                              },
-                              onLongPress: () => _showStudentOptions(student),
-                            );
-                          },
-                        );
-                },
-              ),
-            ),
-
-            // סטטיסטיקה וכפתור שמירה
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Column(
-                children: [
-                  // סטטיסטיקה
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        'סה"כ',
-                        '${allStudents.length}',
-                        Colors.blue,
                       ),
-                      _buildStatItem(
-                        'נוכחים',
-                        '${_attendance.length}',
-                        Colors.green,
-                      ),
-                      _buildStatItem(
-                        'אחוז',
-                        allStudents.isEmpty
-                            ? '0%'
-                            : '${(_attendance.length / allStudents.length * 100).toStringAsFixed(0)}%',
-                        Colors.orange,
-                      ),
+
+                      // Add bottom padding so content isn't hidden by sticky bar
+                      const SizedBox(height: 180),
                     ],
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // כפתור שמירה
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSaving
-                          ? null
-                          : () => _saveAttendance(allStudents),
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.save),
-                      label: Text(_isSaving ? 'שומר...' : 'סיום ושמירה'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+
+              // Sticky bottom bar with KPIs and save button
+              _StickySaveBar(
+                totalStudents: allStudents.length,
+                presentCount: _attendance.length,
+                isSaving: _isSaving,
+                hasSelection: _attendance.isNotEmpty,
+                onSave: () => _saveAttendance(allStudents),
+              ),
+            ],
+          ),
         );
       },
     );
   }
+}
 
-  /// בניית פריט סטטיסטיקה
-  Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
+// ============================================================================
+// COMPONENT: Lesson Type Chips
+// ============================================================================
+class _LessonTypeChips extends StatelessWidget {
+  final LessonType selectedLessonType;
+  final ValueChanged<LessonType> onLessonTypeChanged;
+
+  const _LessonTypeChips({
+    required this.selectedLessonType,
+    required this.onLessonTypeChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: LessonType.values.map((type) {
+              final isSelected = type == selectedLessonType;
+              final session = AttendanceSession(
+                id: '',
+                date: DateTime.now(),
+                lessonType: type,
+                instructorId: '',
+                instructorName: '',
+                createdAt: DateTime.now(),
+              );
+
+              return Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.sm),
+                child: ChoiceChip(
+                  label: Text(session.lessonTypeName),
+                  selected: isSelected,
+                  onSelected: (_) => onLessonTypeChanged(type),
+                  selectedColor: AppColors.primaryLight,
+                  backgroundColor: AppColors.surfaceVariant,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
-        Text(
-          label,
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Search Bar
+// ============================================================================
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueNotifier<String> searchQuery;
+
+  const _SearchBar({
+    required this.controller,
+    required this.searchQuery,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: ValueListenableBuilder<String>(
+          valueListenable: searchQuery,
+          builder: (context, searchValue, _) {
+            return TextField(
+              controller: controller,
+              textDirection: TextDirection.rtl,
+              decoration: InputDecoration(
+                hintText: 'חפש תלמיד...',
+                hintStyle: const TextStyle(color: AppColors.textHint),
+                prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                suffixIcon: searchValue.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          controller.clear();
+                          searchQuery.value = '';
+                        },
+                        color: AppColors.textSecondary,
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              ),
+              onChanged: (value) {
+                searchQuery.value = value;
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Student Attendance Tile
+// ============================================================================
+class _StudentAttendanceTile extends StatelessWidget {
+  final StudentModel student;
+  final bool isPresent;
+  final VoidCallback onToggle;
+  final VoidCallback onLongPress;
+
+  const _StudentAttendanceTile({
+    required this.student,
+    required this.isPresent,
+    required this.onToggle,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      color: isPresent ? AppColors.accent : AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isPresent ? AppColors.primary : AppColors.border,
+          width: isPresent ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: isPresent ? AppColors.primary : AppColors.surfaceVariant,
+          child: Text(
+            student.name.isNotEmpty ? student.name[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: isPresent ? Colors.white : AppColors.textSecondary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          student.name,
           style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+            fontWeight: isPresent ? FontWeight.bold : FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        subtitle: student.phoneNumber.isNotEmpty
+            ? Text(
+                student.phoneNumber,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              )
+            : null,
+        trailing: Checkbox(
+          value: isPresent,
+          onChanged: (_) => onToggle(),
+          activeColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        onTap: onToggle,
+        onLongPress: onLongPress,
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Sticky Save Bar
+// ============================================================================
+class _StickySaveBar extends StatelessWidget {
+  final int totalStudents;
+  final int presentCount;
+  final bool isSaving;
+  final bool hasSelection;
+  final VoidCallback onSave;
+
+  const _StickySaveBar({
+    required this.totalStudents,
+    required this.presentCount,
+    required this.isSaving,
+    required this.hasSelection,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = totalStudents > 0
+        ? (presentCount / totalStudents * 100).toStringAsFixed(0)
+        : '0';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // KPI Row
+              _AttendanceKpiRow(
+                totalStudents: totalStudents,
+                presentCount: presentCount,
+                percentage: percentage,
+              ),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (isSaving || !hasSelection) ? null : onSave,
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save, size: 20),
+                  label: Text(
+                    isSaving ? 'שומר...' : 'סיום ושמירה',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    elevation: 2,
+                    disabledBackgroundColor: AppColors.surfaceVariant,
+                    disabledForegroundColor: AppColors.textHint,
+                  ),
+                ),
+              ),
+
+              // Helper text when no selection
+              if (!hasSelection)
+                const Padding(
+                  padding: EdgeInsets.only(top: AppSpacing.sm),
+                  child: Text(
+                    'סמן לפחות תלמיד אחד כדי לשמור',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textHint,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COMPONENT: Attendance KPI Row
+// ============================================================================
+class _AttendanceKpiRow extends StatelessWidget {
+  final int totalStudents;
+  final int presentCount;
+  final String percentage;
+
+  const _AttendanceKpiRow({
+    required this.totalStudents,
+    required this.presentCount,
+    required this.percentage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildKpiCard(
+            label: 'אחוז נוכחות',
+            value: '$percentage%',
+            icon: Icons.pie_chart,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: _buildKpiCard(
+            label: 'נוכחים',
+            value: '$presentCount',
+            icon: Icons.check_circle,
+            color: AppColors.success,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: _buildKpiCard(
+            label: 'סה"כ',
+            value: '$totalStudents',
+            icon: Icons.people,
+            color: AppColors.info,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color.withValues(alpha: 0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
