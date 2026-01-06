@@ -18,15 +18,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final TextEditingController _searchController = TextEditingController();
   final ValueNotifier<String> _searchQuery = ValueNotifier<String>('');
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<Map<String, bool>> _attendanceNotifier = ValueNotifier({});
 
   LessonType _selectedLessonType = LessonType.regular;
-  final Map<String, bool> _attendance = {};
+  Map<String, bool> get _attendance => _attendanceNotifier.value;
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    print('AttendanceScreen initState');
+  }
+
+  @override
   void dispose() {
+    print('AttendanceScreen dispose');
     _searchController.dispose();
     _searchQuery.dispose();
+    _scrollController.dispose();
+    _attendanceNotifier.dispose();
     super.dispose();
   }
 
@@ -302,8 +313,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         );
 
         // איפוס הטופס
+        _attendanceNotifier.value = {};
         setState(() {
-          _attendance.clear();
           _selectedLessonType = LessonType.regular;
         });
       }
@@ -323,26 +334,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<StudentModel>>(
-      stream: _firestoreService.getActiveStudents(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: false,
+      body: StreamBuilder<List<StudentModel>>(
+        stream: _firestoreService.getActiveStudents(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (snapshot.hasError) {
-          return Center(child: Text('שגיאה: ${snapshot.error}'));
-        }
+          if (snapshot.hasError) {
+            return Center(child: Text('שגיאה: ${snapshot.error}'));
+          }
 
-        final allStudents = snapshot.data ?? [];
+          final allStudents = snapshot.data ?? [];
 
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: Column(
+          return Column(
             children: [
               // Scrollable content area
               Expanded(
                 child: SingleChildScrollView(
+                  key: const PageStorageKey<String>('attendanceScrollView'),
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(
+                    bottom: 180,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -416,47 +433,55 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   itemCount: filteredStudents.length,
                                   itemBuilder: (context, index) {
                                     final student = filteredStudents[index];
-                                    final isPresent = _attendance[student.id] ?? false;
 
-                                    return _StudentAttendanceTile(
-                                      student: student,
-                                      isPresent: isPresent,
-                                      onToggle: () {
-                                        setState(() {
-                                          final current = _attendance[student.id] ?? false;
-                                          if (current) {
-                                            _attendance.remove(student.id);
-                                          } else {
-                                            _attendance[student.id] = true;
-                                          }
-                                        });
+                                    return ValueListenableBuilder<Map<String, bool>>(
+                                      valueListenable: _attendanceNotifier,
+                                      builder: (context, attendance, _) {
+                                        final isPresent = attendance[student.id] ?? false;
+
+                                        return _StudentAttendanceTile(
+                                          student: student,
+                                          isPresent: isPresent,
+                                          onToggle: () {
+                                            final newAttendance = Map<String, bool>.from(_attendanceNotifier.value);
+                                            final current = newAttendance[student.id] ?? false;
+                                            if (current) {
+                                              newAttendance.remove(student.id);
+                                            } else {
+                                              newAttendance[student.id] = true;
+                                            }
+                                            _attendanceNotifier.value = newAttendance;
+                                          },
+                                          onLongPress: () => _showStudentOptions(student),
+                                        );
                                       },
-                                      onLongPress: () => _showStudentOptions(student),
                                     );
                                   },
                                 );
                         },
                       ),
-
-                      // Add bottom padding so content isn't hidden by sticky bar
-                      const SizedBox(height: 180),
                     ],
                   ),
                 ),
               ),
 
               // Sticky bottom bar with KPIs and save button
-              _StickySaveBar(
-                totalStudents: allStudents.length,
-                presentCount: _attendance.length,
-                isSaving: _isSaving,
-                hasSelection: _attendance.isNotEmpty,
-                onSave: () => _saveAttendance(allStudents),
+              ValueListenableBuilder<Map<String, bool>>(
+                valueListenable: _attendanceNotifier,
+                builder: (context, attendance, _) {
+                  return _StickySaveBar(
+                    totalStudents: allStudents.length,
+                    presentCount: attendance.length,
+                    isSaving: _isSaving,
+                    hasSelection: attendance.isNotEmpty,
+                    onSave: () => _saveAttendance(allStudents),
+                  );
+                },
               ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -695,11 +720,14 @@ class _StickySaveBar extends StatelessWidget {
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
+          top: AppSpacing.lg,
+          bottom: AppSpacing.lg + MediaQuery.of(context).padding.bottom,
+        ),
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // KPI Row
@@ -761,7 +789,6 @@ class _StickySaveBar extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
