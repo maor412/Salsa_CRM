@@ -6,6 +6,19 @@ import '../services/firestore_service.dart';
 import '../providers/auth_provider.dart';
 import '../config/app_theme.dart';
 
+/// המרת מספר טלפון לפורמט ישראלי (0xx במקום +972)
+String _formatPhoneNumber(String phone) {
+  if (phone.isEmpty) return '';
+
+  // אם המספר מתחיל ב-+972, נחליף ל-0
+  if (phone.startsWith('+972')) {
+    return '0${phone.substring(4)}';
+  }
+
+  // אחרת נחזיר את המספר כמו שהוא
+  return phone;
+}
+
 /// מסך רישום נוכחות
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -663,7 +676,7 @@ class _StudentAttendanceTile extends StatelessWidget {
         ),
         subtitle: student.phoneNumber.isNotEmpty
             ? Text(
-                student.phoneNumber,
+                _formatPhoneNumber(student.phoneNumber),
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
