@@ -242,6 +242,8 @@ class FirestoreService {
           description: exerciseData['description'],
           orderIndex: exerciseData['orderIndex'],
           createdAt: DateTime.now(),
+          videoUrl: exerciseData['videoUrl'],
+          level: exerciseData['level'] ?? 'רמת בסיס',
         );
 
         batch.set(docRef, exercise.toFirestore());
@@ -249,6 +251,43 @@ class FirestoreService {
 
       await batch.commit();
     }
+  }
+
+  /// מחיקה ואיתחול מחדש של כל התרגילים
+  Future<void> resetExercises() async {
+    // מחיקת כל התרגילים הקיימים
+    final existingExercises = await _firestore
+        .collection(FirebaseConfig.exercisesCollection)
+        .get();
+
+    final batch = _firestore.batch();
+
+    // מחיקת כל התרגילים הישנים
+    for (final doc in existingExercises.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // הוספת התרגילים החדשים
+    for (final exerciseData in DefaultExercises.exercises) {
+      final docRef = _firestore
+          .collection(FirebaseConfig.exercisesCollection)
+          .doc();
+
+      final exercise = ExerciseModel(
+        id: docRef.id,
+        name: exerciseData['name'],
+        description: exerciseData['description'],
+        orderIndex: exerciseData['orderIndex'],
+        createdAt: DateTime.now(),
+        videoUrl: exerciseData['videoUrl'],
+        level: exerciseData['level'] ?? 'רמת בסיס',
+      );
+
+      batch.set(docRef, exercise.toFirestore());
+    }
+
+    await batch.commit();
+    print('✅ Exercises reset successfully!');
   }
 
   // ========== Message Templates ==========

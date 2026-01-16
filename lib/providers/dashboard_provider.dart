@@ -10,6 +10,7 @@ class DashboardData {
   final double exercisesProgress;
   final List<String> alerts;
   final List<StudentModel> birthdayStudents;
+  final String currentExerciseLevel; // הרמה הנוכחית של התרגילים
 
   DashboardData({
     required this.lastSessionAttendanceRate,
@@ -18,6 +19,7 @@ class DashboardData {
     required this.exercisesProgress,
     required this.alerts,
     required this.birthdayStudents,
+    this.currentExerciseLevel = '',
   });
 
   factory DashboardData.empty() {
@@ -28,6 +30,7 @@ class DashboardData {
       exercisesProgress: 0.0,
       alerts: [],
       birthdayStudents: [],
+      currentExerciseLevel: '',
     );
   }
 }
@@ -62,11 +65,12 @@ class DashboardProvider with ChangeNotifier {
       final results = await Future.wait([
         _getLastSessionAttendanceRate(),
         _getStudentsWithThreeAbsences(),
-        _getExercisesProgress(),
+        _getExercisesProgressAndLevel(),
         _getBirthdayStudents(),
       ]);
 
       final absences = results[1] as List<StudentAbsenceInfo>;
+      final exercisesData = results[2] as Map<String, dynamic>;
       final alerts = await _generateAlerts(
         studentsWithAbsences: absences.length,
         birthdayStudents: results[3] as List<StudentModel>,
@@ -76,9 +80,10 @@ class DashboardProvider with ChangeNotifier {
         lastSessionAttendanceRate: results[0] as double,
         studentsWithThreeAbsences: absences.length,
         studentsWithConsecutiveAbsences: absences,
-        exercisesProgress: results[2] as double,
+        exercisesProgress: exercisesData['progress'] as double,
         alerts: alerts,
         birthdayStudents: results[3] as List<StudentModel>,
+        currentExerciseLevel: exercisesData['currentLevel'] as String,
       );
     } catch (e) {
       print('Error loading dashboard data: $e');
@@ -142,18 +147,31 @@ class DashboardProvider with ChangeNotifier {
     }
   }
 
-  /// חישוב אחוז התקדמות בתרגילים
-  Future<double> _getExercisesProgress() async {
+  /// חישוב אחוז התקדמות בתרגילים והרמה הנוכחית
+  Future<Map<String, dynamic>> _getExercisesProgressAndLevel() async {
     try {
       final exercises = await _firestoreService.getExercises().first;
 
-      if (exercises.isEmpty) return 0.0;
+      if (exercises.isEmpty) {
+        return {'progress': 0.0, 'currentLevel': ''};
+      }
 
       final completed = exercises.where((e) => e.isCompleted).length;
-      return (completed / exercises.length) * 100;
+      final progress = (completed / exercises.length) * 100;
+
+      // מציאת הרמה הנוכחית - לפי התרגיל הבא שעוד לא למדו
+      final nextExercise = exercises.firstWhere(
+        (e) => !e.isCompleted,
+        orElse: () => exercises.last,
+      );
+
+      return {
+        'progress': progress,
+        'currentLevel': nextExercise.level,
+      };
     } catch (e) {
       print('Error calculating exercises progress: $e');
-      return 0.0;
+      return {'progress': 0.0, 'currentLevel': ''};
     }
   }
 

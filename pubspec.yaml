@@ -58,6 +58,7 @@ flutter:
   # Assets
   assets:
     - assets/icon/
+    - assets/fonts/
 
 # הגדרות אייקון אפליקציה
 flutter_launcher_icons:

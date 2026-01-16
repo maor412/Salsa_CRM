@@ -19,7 +19,19 @@
       "Bash(git commit:*)",
       "Bash(curl:*)",
       "Bash(flutter clean:*)",
-      "Bash(if not exist scripts mkdir scripts)"
+      "Bash(if not exist scripts mkdir scripts)",
+      "Bash(if not exist functions mkdir functions)",
+      "Bash(npm install)",
+      "Bash(firebase deploy:*)",
+      "Bash(npm run lint:*)",
+      "Bash(flutter run)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(npm install:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(node import-students.js:*)",
+      "Bash(node import-students-web.js:*)",
+      "Bash(node delete-all-students.js:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

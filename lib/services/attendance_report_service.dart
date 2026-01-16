@@ -1,4 +1,6 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -12,6 +14,7 @@ class AttendanceReportService {
 
   /// יצירת דוח נוכחות PDF
   Future<Uint8List> generateAttendanceReport() async {
+    WidgetsFlutterBinding.ensureInitialized();
     // טעינת נתונים
     final students = await _firestoreService.getActiveStudents().first;
     final sessionsDescending = await _getLastNSessions(10);
@@ -35,8 +38,9 @@ class AttendanceReportService {
     pw.Font? hebrewFont;
     pw.Font? hebrewFontBold;
     try {
-      hebrewFont = await PdfGoogleFonts.rubikRegular();
-      hebrewFontBold = await PdfGoogleFonts.rubikBold();
+      final fontData = await rootBundle.load('assets/fonts/Rubik.ttf');
+      hebrewFont = pw.Font.ttf(fontData);
+      hebrewFontBold = pw.Font.ttf(fontData);
     } catch (e) {
       print('Could not load custom font, using default: $e');
       // נמשיך עם הפונט הדיפולטיבי
@@ -374,3 +378,9 @@ class AttendanceReportService {
     }
   }
 }
+
+
+
+
+
+

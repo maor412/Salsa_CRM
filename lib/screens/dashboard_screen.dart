@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/dashboard_provider.dart';
 import '../config/app_theme.dart';
 import '../widgets/app_card.dart';
@@ -375,13 +377,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'הושלמו $completed מתוך $total תרגילים',
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            children: [
+              Text(
+                'הושלמו $completed מתוך $total תרגילים',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (data.currentExerciseLevel.isNotEmpty) ...[
+                const SizedBox(width: AppSpacing.sm),
+                const Text(
+                  '•',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs - 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.largeRadius,
+                  ),
+                  child: Text(
+                    data.currentExerciseLevel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -710,22 +745,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: AppColors.textSecondary,
                             ),
                           ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.errorLight,
-                              borderRadius: AppRadius.largeRadius,
-                            ),
-                            child: Text(
-                              '${item.consecutiveAbsences}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.error,
+                          trailing: IconButton(
+                            icon: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366),
+                                borderRadius: BorderRadius.circular(8),
                               ),
+                              child: SvgPicture.asset(
+                                'assets/icon/whatsapp_icon.svg',
+                                width: 22,
+                                height: 22,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                            ),
+                            onPressed: () => _openWhatsApp(item.student.phoneNumber),
+                            tooltip: 'שליחת הודעה בווטסאפ',
+                            style: IconButton.styleFrom(
+                              padding: EdgeInsets.zero,
                             ),
                           ),
                         );
@@ -738,6 +778,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openWhatsApp(String phoneNumber) async {
+    // הסרת תווים מיוחדים ממספר הטלפון
+    final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+
+    // וידוא שהמספר מתחיל ב-+ (נדרש לפורמט בינלאומי)
+    final formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : '+972${cleanPhone.replaceFirst(RegExp(r'^0'), '')}';
+
+    final url = Uri.parse('https://wa.me/$formattedPhone');
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'לא ניתן לפתוח את WhatsApp';
+      }
+    } catch (e) {
+      print('שגיאה בפתיחת WhatsApp: $e');
+    }
   }
 }
 

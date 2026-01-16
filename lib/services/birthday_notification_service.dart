@@ -41,9 +41,9 @@ class BirthdayNotificationService {
           await _notificationService.scheduleNotification(
             id: _notificationIdForStudent(student.id, scheduledDate),
             title:
-                '\u05d9\u05e9 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd',
+                '🎂 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea - ${student.name}',
             body:
-                '\u05dc${student.name} \u05d9\u05e9 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd, \u05ea\u05d1\u05e8\u05db\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05d1-WhatsApp!',
+                '\u05dc${student.name} \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd! \u05d0\u05dc \u05ea\u05e9\u05db\u05d7 \u05dc\u05e9\u05dc\u05d5\u05d7 \u05d1\u05e8\u05db\u05d4 \u05d1\u05e7\u05d1\u05d5\u05e6\u05ea WhatsApp 🎉',
             scheduledDate: scheduledDate,
             payload: 'birthday_${student.id}',
           );
@@ -60,9 +60,9 @@ class BirthdayNotificationService {
     try {
       await _notificationService.showInstantNotification(
         title:
-            '\u05d9\u05e9 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd',
+            '🎂 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea - ${student.name}',
         body:
-            '\u05dc${student.name} \u05d9\u05e9 \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd, \u05ea\u05d1\u05e8\u05db\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05d1-WhatsApp!',
+            '\u05dc${student.name} \u05d9\u05d5\u05dd \u05d4\u05d5\u05dc\u05d3\u05ea \u05d4\u05d9\u05d5\u05dd! \u05d0\u05dc \u05ea\u05e9\u05db\u05d7 \u05dc\u05e9\u05dc\u05d5\u05d7 \u05d1\u05e8\u05db\u05d4 \u05d1\u05e7\u05d1\u05d5\u05e6\u05ea WhatsApp 🎉',
         payload: 'birthday_${student.id}',
       );
     } catch (e) {

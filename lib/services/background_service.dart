@@ -38,29 +38,29 @@ class BackgroundService {
 
   /// תזמון תזכורות שבועיות
   static Future<void> scheduleWeeklyReminders() async {
-    // תזכורת רביעי
+    // תזכורת רביעי - זמנית שונה לשישי 12:10 לבדיקה
     await Workmanager().registerPeriodicTask(
       '${_weeklyReminderTask}_wednesday',
       _weeklyReminderTask,
       frequency: const Duration(days: 7),
       initialDelay: _calculateWeeklyDelay(
-        dayOfWeek: DateTime.wednesday,
-        hour: 9,
-        minute: 30,
+        dayOfWeek: DateTime.friday,
+        hour: 12,
+        minute: 10,
       ),
       inputData: {'day': 'wednesday'},
       tag: 'wednesday_reminder',
     );
 
-    // תזכורת שבת
+    // תזכורת שבת - זמנית שונה לשישי 12:10 לבדיקה
     await Workmanager().registerPeriodicTask(
       '${_weeklyReminderTask}_saturday',
       _weeklyReminderTask,
       frequency: const Duration(days: 7),
       initialDelay: _calculateWeeklyDelay(
-        dayOfWeek: DateTime.saturday,
-        hour: 9,
-        minute: 30,
+        dayOfWeek: DateTime.friday,
+        hour: 12,
+        minute: 10,
       ),
       inputData: {'day': 'saturday'},
       tag: 'saturday_reminder',

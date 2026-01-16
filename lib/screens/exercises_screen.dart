@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/exercise_model.dart';
 import '../services/firestore_service.dart';
 import '../config/app_theme.dart';
@@ -24,10 +26,27 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
   late Animation<double> _fabScaleAnimation;
   late Animation<double> _fabOpacityAnimation;
 
+  // מצב פתוח/סגור של כל רמה
+  final Map<String, bool> _expandedLevels = {
+    'רמת בסיס': false,
+    'רמה 1': false,
+    'רמה 2': false,
+    'רמה 3': false,
+    'רמה 4': false,
+    'רמה 5': false,
+  };
+
   @override
   void initState() {
     super.initState();
     _firestoreService.initializeDefaultExercises();
+
+    // ============================================================
+    // 🔄 עדכון DB - איתחול מחדש של כל 92 התרגילים החדשים! 🔄
+    // ⚠️ פונקציה זו תמחק את כל התרגילים הישנים ותוסיף את החדשים
+    // ⚠️ השורה הבאה מושבתת - הסר את ההערה רק אם אתה רוצה לאפס מחדש!
+    // ============================================================
+    // _resetExercisesOnce();
 
     // אתחול אנימציית FAB
     _fabAnimationController = AnimationController(
@@ -99,6 +118,41 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
     );
   }
 
+  // ============================================================
+  // 🔄 פונקציית עדכון DB - מחיקה והכנסת 92 תרגילים חדשים! 🔄
+  // ============================================================
+  // פונקציה זו מבצעת:
+  // 1. מחיקת כל התרגילים הקיימים ב-Firestore
+  // 2. הכנסת 92 התרגילים החדשים (רמת בסיס עד רמה 5)
+  // 3. איפוס כל המצב (isCompleted = false)
+  //
+  // ⚠️ השתמש בזה פעם אחת בלבד!
+  // ⚠️ אחרי הריצה הראשונה - הסר/הערה את הקריאה לפונקציה ב-initState (שורה 49)
+  // ============================================================
+  Future<void> _resetExercisesOnce() async {
+    try {
+      await _firestoreService.resetExercises();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('התרגילים אותחלו מחדש בהצלחה!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error resetting exercises: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה באיתחול תרגילים: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _openShinesDialog() {
     ShinesFlowDialog.show(context);
   }
@@ -137,6 +191,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
         return NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
           child: ListView(
+            key: const PageStorageKey<String>('exercises_list'),
             controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
@@ -433,6 +488,22 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
   }
 
   Widget _buildAllExercisesCard(List<ExerciseModel> exercises) {
+    // קיבוץ תרגילים לפי רמות
+    final Map<String, List<ExerciseModel>> exercisesByLevel = {
+      'רמת בסיס': [],
+      'רמה 1': [],
+      'רמה 2': [],
+      'רמה 3': [],
+      'רמה 4': [],
+      'רמה 5': [],
+    };
+
+    for (var exercise in exercises) {
+      if (exercisesByLevel.containsKey(exercise.level)) {
+        exercisesByLevel[exercise.level]!.add(exercise);
+      }
+    }
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,13 +536,126 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          ...exercises.asMap().entries.map((entry) {
-            final index = entry.key;
-            final exercise = entry.value;
-            return _buildExerciseItem(exercise, index);
+
+          // תפריטים נפתחים לפי רמות
+          ...exercisesByLevel.entries.map((entry) {
+            final level = entry.key;
+            final levelExercises = entry.value;
+
+            if (levelExercises.isEmpty) return const SizedBox.shrink();
+
+            return _buildLevelSection(level, levelExercises, exercises);
           }),
         ],
       ),
+    );
+  }
+
+  Widget _buildLevelSection(String level, List<ExerciseModel> levelExercises, List<ExerciseModel> allExercises) {
+    final completed = levelExercises.where((e) => e.isCompleted).length;
+    final total = levelExercises.length;
+
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        final isExpanded = _expandedLevels[level] ?? false;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                setLocalState(() {
+                  _expandedLevels[level] = !isExpanded;
+                });
+              },
+              borderRadius: AppRadius.mediumRadius,
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: isExpanded ? AppColors.accent : AppColors.surface,
+                  borderRadius: AppRadius.mediumRadius,
+                  border: Border.all(
+                    color: isExpanded ? AppColors.primary.withOpacity(0.3) : AppColors.border,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // כותרת הרמה
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary.withOpacity(0.1),
+                          ),
+                          child: Center(
+                            child: Text(
+                              level == 'רמת בסיס' ? 'B' : level.split(' ')[1],
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                level,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$completed מתוך $total הושלמו',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ],
+                    ),
+
+                    // רשימת התרגילים (כשמורחב)
+                    if (isExpanded) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      const Divider(height: 1),
+                      const SizedBox(height: AppSpacing.md),
+                      ...levelExercises.map((exercise) {
+                        final globalIndex = allExercises.indexOf(exercise);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: _buildExerciseItem(exercise, globalIndex),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -570,11 +754,46 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
                     ],
                   ),
                 ),
+
+                // כפתור יוטיוב אם יש קישור
+                if (exercise.videoUrl != null && exercise.videoUrl!.isNotEmpty) ...[
+                  const SizedBox(width: AppSpacing.md),
+                  IconButton(
+                    onPressed: () => _openVideo(exercise.videoUrl!),
+                    icon: SvgPicture.asset(
+                      'assets/icon/youtube_icon.svg',
+                      width: 32,
+                      height: 32,
+                    ),
+                    tooltip: 'צפה בסרטון',
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openVideo(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'לא ניתן לפתוח את הסרטון';
+      }
+    } catch (e) {
+      print('שגיאה בפתיחת הסרטון: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('לא ניתן לפתוח את הסרטון: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
