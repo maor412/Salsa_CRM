@@ -17,7 +17,7 @@ class AttendanceReportService {
     WidgetsFlutterBinding.ensureInitialized();
     // טעינת נתונים
     final students = await _firestoreService.getActiveStudents().first;
-    final sessionsDescending = await _getLastNSessions(10);
+    final sessionsDescending = await _getLastNSessions(5); // הקטנה ל-5 שיעורים כדי שיתאימו לרוחב העמוד
     // הפוך את הסדר מהחדש לישן -> מהישן לחדש
     final sessions = sessionsDescending.reversed.toList();
 
@@ -46,32 +46,54 @@ class AttendanceReportService {
       // נמשיך עם הפונט הדיפולטיבי
     }
 
+    // שימוש ב-MultiPage כדי לאפשר לטבלה להתפרס על כל העמוד
+    const footerHeight = 28.0;
+    const pageMargin = 15.0;
     pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4.landscape,
-        build: (pw.Context context) {
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4.landscape.copyWith(
+            marginTop: 0,
+            marginBottom: 0,
+            marginLeft: 0,
+            marginRight: 0,
+          ),
+          margin: const pw.EdgeInsets.fromLTRB(
+            pageMargin,
+            pageMargin,
+            pageMargin,
+            pageMargin,
+          ),
+        ),
+        header: (pw.Context context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // כותרת
               _buildHeader(hebrewFontBold),
-              pw.SizedBox(height: 20),
-
-              // טבלת נוכחות
-              _buildAttendanceTable(
-                students: students,
-                sessions: sessions,
-                attendanceMap: attendanceMap,
-                font: hebrewFont,
-                fontBold: hebrewFontBold,
-              ),
-
-              pw.Spacer(),
-
-              // פוטר
-              _buildFooter(hebrewFont),
+              pw.SizedBox(height: 8),
             ],
           );
+        },
+        footer: (pw.Context context) {
+          return pw.Container(
+            height: footerHeight,
+            alignment: pw.Alignment.bottomCenter,
+            child: _buildFooter(
+              hebrewFont,
+              pageNumber: context.pageNumber,
+              totalPages: context.pagesCount,
+            ),
+          );
+        },
+        build: (pw.Context context) {
+          return [
+            _buildAttendanceTable(
+              students: students,
+              sessions: sessions,
+              attendanceMap: attendanceMap,
+              font: hebrewFont,
+              fontBold: hebrewFontBold,
+            ),
+          ];
         },
       ),
     );
@@ -82,7 +104,7 @@ class AttendanceReportService {
   /// בניית כותרת הדוח
   pw.Widget _buildHeader(pw.Font? fontBold) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(20),
+      padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
         color: PdfColor.fromHex('#673AB7'),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
@@ -99,7 +121,7 @@ class AttendanceReportService {
                   'דוח נוכחות',
                   style: pw.TextStyle(
                     color: PdfColors.white,
-                    fontSize: 24,
+                    fontSize: 20,
                     font: fontBold,
                     fontWeight: pw.FontWeight.bold,
                   ),
@@ -110,7 +132,7 @@ class AttendanceReportService {
                   'קבוצת אסתי - סלסה',
                   style: pw.TextStyle(
                     color: PdfColors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     font: fontBold,
                   ),
                   textDirection: pw.TextDirection.rtl,
@@ -124,7 +146,7 @@ class AttendanceReportService {
                   'תאריך: ${_formatDate(DateTime.now())}',
                   style: pw.TextStyle(
                     color: PdfColors.white,
-                    fontSize: 12,
+                    fontSize: 11,
                     font: fontBold,
                   ),
                   textDirection: pw.TextDirection.rtl,
@@ -202,7 +224,7 @@ class AttendanceReportService {
             final isLastColumn = index == headers.length - 1; // עמודת שם התלמיד
 
             return pw.Container(
-              padding: const pw.EdgeInsets.all(8),
+              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               alignment: isLastColumn ? pw.Alignment.centerRight : pw.Alignment.center,
               child: pw.Text(
                 header,
@@ -245,14 +267,14 @@ class AttendanceReportService {
               }
 
               return pw.Container(
-                padding: const pw.EdgeInsets.all(8),
+                padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 3),
                 alignment: isLastColumn
                     ? pw.Alignment.centerRight
                     : pw.Alignment.center,
                 child: pw.Text(
                   cell,
                   style: pw.TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     font: isLastColumn ? fontBold : font,
                     fontWeight: isLastColumn
                         ? pw.FontWeight.bold
@@ -270,9 +292,9 @@ class AttendanceReportService {
   }
 
   /// בניית פוטר
-  pw.Widget _buildFooter(pw.Font? font) {
+  pw.Widget _buildFooter(pw.Font? font, {int pageNumber = 1, int totalPages = 1}) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 5),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
           top: pw.BorderSide(
@@ -289,16 +311,16 @@ class AttendanceReportService {
             pw.Text(
               'מערכת ניהול קבוצת סלסה - קבוצת אסתי',
               style: pw.TextStyle(
-                fontSize: 10,
+                fontSize: 9,
                 color: PdfColors.grey600,
                 font: font,
               ),
               textDirection: pw.TextDirection.rtl,
             ),
             pw.Text(
-              'עמוד 1 מתוך 1',
+              'עמוד $pageNumber מתוך $totalPages',
               style: pw.TextStyle(
-                fontSize: 10,
+                fontSize: 9,
                 color: PdfColors.grey600,
                 font: font,
               ),
@@ -378,9 +400,6 @@ class AttendanceReportService {
     }
   }
 }
-
-
-
 
 
 

@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:workmanager/workmanager.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/shines_provider.dart';
@@ -63,14 +64,24 @@ void main() async {
   // אתחול שירות התראות
   await NotificationService().initialize();
 
-  // תזמון תזכורות שבועיות (רביעי ושבת) - באמצעות Firebase Functions בלבד
-  // await NotificationService().scheduleWeeklyMessageReminders(); // מבוטל - Firebase Functions שולח את ההתראות
-
-  // אתחול שירות משימות רקע (יריץ נוטיפיקציות גם כשהאפליקציה סגורה)
-  await BackgroundService.initialize();
-
-  // בדיקת ימי הולדת ושליחת התראות (לפעם הראשונה)
-  await BirthdayNotificationService().scheduleTodayBirthdayNotifications();
+  // ביטול אגרסיבי של כל משימות Workmanager
+  // Firebase Functions מטפל בכל הנוטיפיקציות:
+  // - ימי הולדת: כל יום ב-9:00 (timezone Israel)
+  // - תזכורות רביעי ושבת: ב-9:30 (timezone Israel)
+  try {
+    // ביטול ישיר של Workmanager ללא אתחול BackgroundService
+    await Workmanager().cancelAll();
+    print('✅ Workmanager tasks cancelled directly');
+  } catch (e) {
+    print('⚠️ Error cancelling Workmanager: $e');
+    // אם נכשל, ננסה דרך BackgroundService
+    try {
+      await BackgroundService.cancelAll();
+      print('✅ Background tasks cancelled via BackgroundService');
+    } catch (e2) {
+      print('⚠️ Error cancelling background tasks: $e2');
+    }
+  }
 
   runApp(const SalsaCRMApp());
 }

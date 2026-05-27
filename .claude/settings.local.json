@@ -31,7 +31,10 @@
       "Bash(node import-students.js:*)",
       "Bash(node import-students-web.js:*)",
       "Bash(node delete-all-students.js:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(firebase functions:list:*)",
+      "Bash(firebase functions:log:*)",
+      "Bash(flutter run:*)"
     ]
   }
 }

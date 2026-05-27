@@ -40,11 +40,17 @@ class FirestoreService {
     return _firestore
         .collection(FirebaseConfig.studentsCollection)
         .where('isActive', isEqualTo: true)
-        .orderBy('name')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => StudentModel.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          final students = snapshot.docs
+              .map((doc) => StudentModel.fromFirestore(doc))
+              .toList();
+
+          // מיון ידני לפי שם (במקום orderBy שדורש אינדקס)
+          students.sort((a, b) => a.name.compareTo(b.name));
+
+          return students;
+        });
   }
 
   /// קבלת תלמידים עם יום הולדת בטווח
