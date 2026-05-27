@@ -483,8 +483,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 valueListenable: _attendanceNotifier,
                 builder: (context, attendance, _) {
                   return _StickySaveBar(
-                    totalStudents: allStudents.length,
-                    presentCount: attendance.length,
                     isSaving: _isSaving,
                     hasSelection: attendance.isNotEmpty,
                     onSave: () => _saveAttendance(allStudents),
@@ -702,15 +700,11 @@ class _StudentAttendanceTile extends StatelessWidget {
 // COMPONENT: Sticky Save Bar
 // ============================================================================
 class _StickySaveBar extends StatelessWidget {
-  final int totalStudents;
-  final int presentCount;
   final bool isSaving;
   final bool hasSelection;
   final VoidCallback onSave;
 
   const _StickySaveBar({
-    required this.totalStudents,
-    required this.presentCount,
     required this.isSaving,
     required this.hasSelection,
     required this.onSave,
@@ -718,10 +712,6 @@ class _StickySaveBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percentage = totalStudents > 0
-        ? (presentCount / totalStudents * 100).toStringAsFixed(0)
-        : '0';
-
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -737,23 +727,10 @@ class _StickySaveBar extends StatelessWidget {
         padding: EdgeInsets.only(
           left: AppSpacing.lg,
           right: AppSpacing.lg,
-          top: AppSpacing.lg,
-          bottom: AppSpacing.lg + MediaQuery.of(context).padding.bottom,
+          top: AppSpacing.sm,
+          bottom: AppSpacing.sm + MediaQuery.of(context).padding.bottom,
         ),
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // KPI Row
-              _AttendanceKpiRow(
-                totalStudents: totalStudents,
-                presentCount: presentCount,
-                percentage: percentage,
-              ),
-
-              const SizedBox(height: AppSpacing.lg),
-
-              // Save button
-              SizedBox(
+        child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: (isSaving || !hasSelection) ? null : onSave,
@@ -777,121 +754,17 @@ class _StickySaveBar extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                     elevation: 2,
                     disabledBackgroundColor: AppColors.surfaceVariant,
                     disabledForegroundColor: AppColors.textHint,
                   ),
                 ),
-              ),
-
-              // Helper text when no selection
-              if (!hasSelection)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.sm),
-                  child: Text(
-                    'סמן לפחות תלמיד אחד כדי לשמור',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textHint,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          ),
         ),
+      ),
     );
   }
 }
 
 // ============================================================================
 // COMPONENT: Attendance KPI Row
-// ============================================================================
-class _AttendanceKpiRow extends StatelessWidget {
-  final int totalStudents;
-  final int presentCount;
-  final String percentage;
-
-  const _AttendanceKpiRow({
-    required this.totalStudents,
-    required this.presentCount,
-    required this.percentage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildKpiCard(
-            label: 'אחוז נוכחות',
-            value: '$percentage%',
-            icon: Icons.pie_chart,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _buildKpiCard(
-            label: 'נוכחים',
-            value: '$presentCount',
-            icon: Icons.check_circle,
-            color: AppColors.success,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _buildKpiCard(
-            label: 'סה"כ',
-            value: '$totalStudents',
-            icon: Icons.people,
-            color: AppColors.info,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKpiCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: color.withValues(alpha: 0.8),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
