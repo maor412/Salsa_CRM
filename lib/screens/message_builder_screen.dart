@@ -173,9 +173,12 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   Future<void> _generateAiMessageWithFallback() async {
     final authProvider = context.read<AuthProvider>();
     final userName = authProvider.currentUser?.name ?? 'הצוות';
+
+    await _checkBirthdays(addPlaceholder: false);
+
     final birthdayNames = _birthdayStudents
         .where((student) => _selectedBirthdayStudents.contains(student.id))
-        .map((student) => student.name)
+        .map((student) => _getFirstName(student.name))
         .toList();
 
     try {
@@ -187,9 +190,14 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
       );
 
       setState(() {
-        _messageController.text = aiMessage;
+        _messageController.text = _ensureBirthdayMention(
+          aiMessage,
+          birthdayNames,
+        );
         _birthdayBlockAdded = birthdayNames.isNotEmpty;
-        _birthdayGreetingCache = null;
+        _birthdayGreetingCache = birthdayNames.isNotEmpty
+            ? _buildBirthdayGreeting(birthdayNames)
+            : null;
       });
     } catch (e) {
       debugPrint('AI message generation failed, falling back to templates: $e');
@@ -208,6 +216,12 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   }
 
   /// יצירת הודעה רנדומלית מהתבניות
+  String _getFirstName(String fullName) {
+    final trimmedName = fullName.trim();
+    if (trimmedName.isEmpty) return trimmedName;
+    return trimmedName.split(RegExp(r'\s+')).first;
+  }
+
   Future<void> _generateRandomMessage() async {
     final templates = await _firestoreService.getTemplatesByCategory(
       _selectedCategory,
@@ -234,7 +248,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   }
 
   /// בדיקת ימי הולדת
-  Future<void> _checkBirthdays() async {
+  Future<void> _checkBirthdays({bool addPlaceholder = true}) async {
     try {
       final students = await _firestoreService.getUpcomingBirthdayStudents();
       print(
@@ -246,7 +260,8 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
       });
 
       // רק הוסף placeholder אם כבר יש תוכן בהודעה (לא בהתחלה)
-      if (students.isNotEmpty &&
+      if (addPlaceholder &&
+          students.isNotEmpty &&
           _messageController.text.trim().isNotEmpty &&
           !_messageController.text.contains(_birthdayPlaceholder) &&
           !_birthdayBlockAdded) {
@@ -263,21 +278,38 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   }
 
   /// הוספת ברכה ליום הולדת
-  String _buildBirthdayGreeting() {
-    final selectedStudents = _birthdayStudents
-        .where((s) => _selectedBirthdayStudents.contains(s.id))
-        .toList();
+  String _buildBirthdayGreeting([List<String>? birthdayNames]) {
+    final names = birthdayNames ??
+        _birthdayStudents
+            .where((s) => _selectedBirthdayStudents.contains(s.id))
+            .map((s) => _getFirstName(s.name))
+            .toList();
 
-    if (selectedStudents.isEmpty) {
+    if (names.isEmpty) {
       return _birthdayPlaceholder;
     }
 
-    final names = selectedStudents.map((s) => s.getBirthdayGreeting()).toList();
     if (names.length == 1) {
-      return '\u05D4\u05D9\u05D5\u05DD \u05D7\u05D5\u05D2\u05D2\u05D9\u05DD \u05D9\u05D5\u05DD \u05D4\u05D5\u05DC\u05D3\u05EA \u05DC${names.first}, \u05DB\u05D5\u05DC\u05DD \u05E0\u05E9\u05D0\u05E8\u05D9\u05DD \u05DC\u05D4\u05E8\u05D9\u05DD \u05D1\u05DE\u05E2\u05D2\u05DC!!!';
+      return 'היום חוגגים יום הולדת ל${names.first}, עושים מעגל ומרימים באנרגיות. תבואו בכל הכוח!';
     }
-    final combinedNames = '${names[0]} \u05D5\u05DC${names[1]}';
-    return '\u05D4\u05D9\u05D5\u05DD \u05D7\u05D5\u05D2\u05D2\u05D9\u05DD \u05D9\u05D5\u05DD \u05D4\u05D5\u05DC\u05D3\u05EA \u05DC$combinedNames, \u05DB\u05D5\u05DC\u05DD \u05E0\u05E9\u05D0\u05E8\u05D9\u05DD \u05DC\u05D4\u05E8\u05D9\u05DD \u05D1\u05DE\u05E2\u05D2\u05DC\u05D9\u05DD.';
+    final combinedNames = names.length == 2
+        ? '${names[0]} ו${names[1]}'
+        : '${names.take(names.length - 1).join(', ')} ו${names.last}';
+    return 'היום חוגגים יום הולדת ל$combinedNames, עושים מעגלים ומרימים באנרגיות. תבואו בכל הכוח!';
+  }
+
+  String _ensureBirthdayMention(String message, List<String> birthdayNames) {
+    final cleanMessage = message.replaceAll(_birthdayPlaceholder, '').trim();
+    if (birthdayNames.isEmpty) {
+      return cleanMessage;
+    }
+
+    final mentionsBirthday = cleanMessage.contains('יום הולדת');
+    if (mentionsBirthday) {
+      return cleanMessage;
+    }
+
+    return '$cleanMessage\n\n${_buildBirthdayGreeting(birthdayNames)}'.trim();
   }
 
   void _addBirthdayGreeting() {

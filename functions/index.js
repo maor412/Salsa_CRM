@@ -99,6 +99,16 @@ function buildSalsaPrompt(data, retryReason = "") {
     `סוג שיעור: ${categoryName}`,
     `שם שולח: ${senderName}`,
     `ימי הולדת לציון: ${birthdayLine}`,
+    birthdayNames.length > 0 ?
+      "אם יש ימי הולדת לציון, חובה לשלב בהודעה משפט יום הולדת " +
+      "טבעי עם השמות שמופיעים למעלה." :
+      "אין ימי הולדת לציון, אל תכתוב ברכת יום הולדת.",
+    "אל תכתוב placeholders או משתנים כמו {{BIRTHDAY_BLOCK}}.",
+    "ניסוח יום ההולדת חייב להיות ניטרלי מגדרית וללא סימן / בכלל.",
+    "אל תכתוב חוגג/ת, רוקד/ת, בא/ה או כל צורה עם לוכסן.",
+    "השתמש בניסוח כמו: \"היום חוגגים יום הולדת ל___\".",
+    "אפשר להזכיר שעושים מעגל ושכולם יבואו בכל הכוח, " +
+      "אבל בלי ניסוח שמניח זכר או נקבה.",
     "",
     "דוגמה לאורך ולמבנה בלבד, אל תעתיק אותה:",
     "היי כולם 💃",
@@ -141,6 +151,35 @@ function extractGeminiText(responseJson) {
       .map((part) => typeof part.text === "string" ? part.text : "")
       .join("")
       .trim();
+}
+
+/**
+ * Removes template leftovers and guarantees birthday text when needed.
+ * @param {string} message Generated message.
+ * @param {Object} payload Callable payload.
+ * @return {string} Safe message to return to the app.
+ */
+function finalizeSalsaMessage(message, payload) {
+  const cleanMessage = String(message || "")
+      .replace(/\{\{BIRTHDAY_BLOCK\}\}/g, "")
+      .trim();
+  const birthdayNames = cleanBirthdayNames(payload.birthdayNames);
+  if (birthdayNames.length === 0) {
+    return cleanMessage;
+  }
+
+  const mentionsBirthday = cleanMessage.includes("יום הולדת");
+  if (mentionsBirthday) {
+    return cleanMessage;
+  }
+
+  const birthdayText = birthdayNames.length === 1 ?
+    `היום חוגגים יום הולדת ל${birthdayNames[0]}, ` +
+      `עושים מעגל ומרימים באנרגיות. תבואו בכל הכוח!` :
+    `היום חוגגים יום הולדת ל${birthdayNames.join(", ")}, ` +
+      `עושים מעגלים ומרימים באנרגיות. תבואו בכל הכוח!`;
+
+  return `${cleanMessage}\n\n${birthdayText}`.trim();
 }
 
 /**
@@ -246,6 +285,7 @@ exports.generateSalsaMessage = onCall(
               "Gemini returned an empty message.",
           );
         }
+        message = finalizeSalsaMessage(message, payload);
 
         return {
           message,
