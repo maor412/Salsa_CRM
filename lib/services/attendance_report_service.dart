@@ -12,12 +12,20 @@ import 'firestore_service.dart';
 class AttendanceReportService {
   final FirestoreService _firestoreService = FirestoreService();
 
+  static const double _pageMargin = 8.0;
+  static const double _reportHeaderHeight = 64.0;
+  static const double _tableTopGap = 6.0;
+  static const int _studentsPerPage = 22;
+  static const double _tableHeaderFontSize = 30.0;
+  static const double _tableCellFontSize = 33.0;
+
   /// יצירת דוח נוכחות PDF
   Future<Uint8List> generateAttendanceReport() async {
     WidgetsFlutterBinding.ensureInitialized();
     // טעינת נתונים
     final students = await _firestoreService.getActiveStudents().first;
-    final sessionsDescending = await _getLastNSessions(5); // הקטנה ל-5 שיעורים כדי שיתאימו לרוחב העמוד
+    final sessionsDescending =
+        await _getLastNSessions(5); // הקטנה ל-5 שיעורים כדי שיתאימו לרוחב העמוד
     // הפוך את הסדר מהחדש לישן -> מהישן לחדש
     final sessions = sessionsDescending.reversed.toList();
 
@@ -47,64 +55,89 @@ class AttendanceReportService {
     }
 
     // שימוש ב-MultiPage כדי לאפשר לטבלה להתפרס על כל העמוד
-    const footerHeight = 28.0;
-    const pageMargin = 15.0;
-    pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          pageFormat: PdfPageFormat.a4.landscape.copyWith(
-            marginTop: 0,
-            marginBottom: 0,
-            marginLeft: 0,
-            marginRight: 0,
-          ),
-          margin: const pw.EdgeInsets.fromLTRB(
-            pageMargin,
-            pageMargin,
-            pageMargin,
-            pageMargin,
-          ),
+    final studentPages = _chunkStudents(students, _studentsPerPage);
+    if (studentPages.isEmpty) {
+      pdf.addPage(
+        _buildReportPage(
+          pageStudents: const [],
+          sessions: sessions,
+          attendanceMap: attendanceMap,
+          font: hebrewFont,
+          fontBold: hebrewFontBold,
         ),
-        header: (pw.Context context) {
-          return pw.Column(
-            children: [
-              _buildHeader(hebrewFontBold),
-              pw.SizedBox(height: 8),
-            ],
-          );
-        },
-        footer: (pw.Context context) {
-          return pw.Container(
-            height: footerHeight,
-            alignment: pw.Alignment.bottomCenter,
-            child: _buildFooter(
-              hebrewFont,
-              pageNumber: context.pageNumber,
-              totalPages: context.pagesCount,
-            ),
-          );
-        },
-        build: (pw.Context context) {
-          return [
-            _buildAttendanceTable(
-              students: students,
-              sessions: sessions,
-              attendanceMap: attendanceMap,
-              font: hebrewFont,
-              fontBold: hebrewFontBold,
-            ),
-          ];
-        },
-      ),
-    );
+      );
+    } else {
+      for (var pageIndex = 0; pageIndex < studentPages.length; pageIndex++) {
+        pdf.addPage(
+          _buildReportPage(
+            pageStudents: studentPages[pageIndex],
+            sessions: sessions,
+            attendanceMap: attendanceMap,
+            font: hebrewFont,
+            fontBold: hebrewFontBold,
+          ),
+        );
+      }
+    }
 
     return pdf.save();
   }
 
   /// בניית כותרת הדוח
-  pw.Widget _buildHeader(pw.Font? fontBold) {
+  pw.Page _buildReportPage({
+    required List<StudentModel> pageStudents,
+    required List<AttendanceSession> sessions,
+    required Map<String, Map<String, bool>> attendanceMap,
+    pw.Font? font,
+    pw.Font? fontBold,
+  }) {
+    final tableHeight = PdfPageFormat.a4.height -
+        (_pageMargin * 2) -
+        _reportHeaderHeight -
+        _tableTopGap;
+    final tableRowHeight = tableHeight / (_studentsPerPage + 1);
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(_pageMargin),
+      build: (pw.Context context) {
+        return pw.Column(
+          children: [
+            pw.SizedBox(
+              height: _reportHeaderHeight,
+              child: buildHeader(fontBold),
+            ),
+            pw.SizedBox(height: _tableTopGap),
+            _buildAttendanceTable(
+              students: pageStudents,
+              sessions: sessions,
+              attendanceMap: attendanceMap,
+              font: font,
+              fontBold: fontBold,
+              rowHeight: tableRowHeight,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<List<StudentModel>> _chunkStudents(
+    List<StudentModel> students,
+    int chunkSize,
+  ) {
+    final chunks = <List<StudentModel>>[];
+    for (var i = 0; i < students.length; i += chunkSize) {
+      final end =
+          (i + chunkSize < students.length) ? i + chunkSize : students.length;
+      chunks.add(students.sublist(i, end));
+    }
+    return chunks;
+  }
+
+  pw.Widget buildHeader(pw.Font? fontBold) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
+      padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
         color: PdfColor.fromHex('#673AB7'),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
@@ -121,7 +154,7 @@ class AttendanceReportService {
                   'דוח נוכחות',
                   style: pw.TextStyle(
                     color: PdfColors.white,
-                    fontSize: 20,
+                    fontSize: 19,
                     font: fontBold,
                     fontWeight: pw.FontWeight.bold,
                   ),
@@ -132,7 +165,7 @@ class AttendanceReportService {
                   'קבוצת אסתי - סלסה',
                   style: pw.TextStyle(
                     color: PdfColors.white,
-                    fontSize: 14,
+                    fontSize: 13,
                     font: fontBold,
                   ),
                   textDirection: pw.TextDirection.rtl,
@@ -164,13 +197,17 @@ class AttendanceReportService {
     required List<StudentModel> students,
     required List<AttendanceSession> sessions,
     required Map<String, Map<String, bool>> attendanceMap,
+    required double rowHeight,
     pw.Font? font,
     pw.Font? fontBold,
   }) {
     // עמודות הטבלה (בסדר RTL - סיכום, תאריכים מהחדש לישן, שם)
     final headers = [
       'סה"כ',
-      ...sessions.map((session) => _formatDateShort(session.date)).toList().reversed,
+      ...sessions
+          .map((session) => _formatDateShort(session.date))
+          .toList()
+          .reversed,
       'שם תלמיד',
     ];
 
@@ -224,17 +261,22 @@ class AttendanceReportService {
             final isLastColumn = index == headers.length - 1; // עמודת שם התלמיד
 
             return pw.Container(
-              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-              alignment: isLastColumn ? pw.Alignment.centerRight : pw.Alignment.center,
-              child: pw.Text(
-                header,
-                style: pw.TextStyle(
-                  color: PdfColors.white,
-                  fontSize: 10,
-                  font: fontBold,
-                  fontWeight: pw.FontWeight.bold,
+              height: rowHeight,
+              padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+              alignment:
+                  isLastColumn ? pw.Alignment.centerRight : pw.Alignment.center,
+              child: pw.FittedBox(
+                fit: pw.BoxFit.scaleDown,
+                child: pw.Text(
+                  header,
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: _tableHeaderFontSize,
+                    font: fontBold,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textDirection: pw.TextDirection.rtl,
                 ),
-                textDirection: pw.TextDirection.rtl,
               ),
             );
           }).toList(),
@@ -248,14 +290,13 @@ class AttendanceReportService {
 
           return pw.TableRow(
             decoration: pw.BoxDecoration(
-              color: isEven
-                  ? PdfColors.white
-                  : PdfColor.fromHex('#F5F5F5'),
+              color: isEven ? PdfColors.white : PdfColor.fromHex('#F5F5F5'),
             ),
             children: row.asMap().entries.map((cellEntry) {
               final cellIndex = cellEntry.key;
               final cell = cellEntry.value;
-              final isLastColumn = cellIndex == row.length - 1; // עמודת שם התלמיד
+              final isLastColumn =
+                  cellIndex == row.length - 1; // עמודת שם התלמיד
               final isFirstColumn = cellIndex == 0; // עמודת סיכום
 
               // צבע לסמלי נוכחות (עמודות באמצע)
@@ -267,21 +308,25 @@ class AttendanceReportService {
               }
 
               return pw.Container(
-                padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 3),
+                height: rowHeight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 3),
                 alignment: isLastColumn
                     ? pw.Alignment.centerRight
                     : pw.Alignment.center,
-                child: pw.Text(
-                  cell,
-                  style: pw.TextStyle(
-                    fontSize: 9,
-                    font: isLastColumn ? fontBold : font,
-                    fontWeight: isLastColumn
-                        ? pw.FontWeight.bold
-                        : pw.FontWeight.normal,
-                    color: textColor ?? PdfColors.black,
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  child: pw.Text(
+                    cell,
+                    style: pw.TextStyle(
+                      fontSize: _tableCellFontSize,
+                      font: isLastColumn ? fontBold : font,
+                      fontWeight: isLastColumn
+                          ? pw.FontWeight.bold
+                          : pw.FontWeight.normal,
+                      color: textColor ?? PdfColors.black,
+                    ),
+                    textDirection: isLastColumn ? pw.TextDirection.rtl : null,
                   ),
-                  textDirection: isLastColumn ? pw.TextDirection.rtl : null,
                 ),
               );
             }).toList(),
@@ -292,9 +337,10 @@ class AttendanceReportService {
   }
 
   /// בניית פוטר
-  pw.Widget _buildFooter(pw.Font? font, {int pageNumber = 1, int totalPages = 1}) {
+  pw.Widget buildFooter(pw.Font? font,
+      {int pageNumber = 1, int totalPages = 1}) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+      padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 5),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
           top: pw.BorderSide(
@@ -305,28 +351,16 @@ class AttendanceReportService {
       ),
       child: pw.Directionality(
         textDirection: pw.TextDirection.rtl,
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(
-              'מערכת ניהול קבוצת סלסה - קבוצת אסתי',
-              style: pw.TextStyle(
-                fontSize: 9,
-                color: PdfColors.grey600,
-                font: font,
-              ),
-              textDirection: pw.TextDirection.rtl,
+        child: pw.Center(
+          child: pw.Text(
+            'עמוד $pageNumber מתוך $totalPages',
+            style: pw.TextStyle(
+              fontSize: 10,
+              color: PdfColors.grey600,
+              font: font,
             ),
-            pw.Text(
-              'עמוד $pageNumber מתוך $totalPages',
-              style: pw.TextStyle(
-                fontSize: 9,
-                color: PdfColors.grey600,
-                font: font,
-              ),
-              textDirection: pw.TextDirection.rtl,
-            ),
-          ],
+            textDirection: pw.TextDirection.rtl,
+          ),
         ),
       ),
     );
@@ -335,7 +369,9 @@ class AttendanceReportService {
   /// שליפת N שיעורים אחרונים
   Future<List<AttendanceSession>> _getLastNSessions(int count) async {
     try {
-      return await _firestoreService.getRecentAttendanceSessions(limit: count).first;
+      return await _firestoreService
+          .getRecentAttendanceSessions(limit: count)
+          .first;
     } catch (e) {
       print('Error fetching sessions: $e');
       return [];
@@ -376,8 +412,8 @@ class AttendanceReportService {
   /// פורמט תאריך מלא
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/'
-           '${date.month.toString().padLeft(2, '0')}/'
-           '${date.year}';
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
   }
 
   /// פורמט תאריך קצר (יום/חודש)
@@ -400,6 +436,3 @@ class AttendanceReportService {
     }
   }
 }
-
-
-
