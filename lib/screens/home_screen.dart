@@ -33,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isAdmin = authProvider.isAdmin;
     final pageCount = isAdmin ? 5 : 4;
+    final isKeyboardVisible = mq.viewInsets.bottom > 0;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -60,7 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Padding(
               padding: EdgeInsets.only(
-                bottom: _bottomNavHeight + mq.padding.bottom,
+                bottom: isKeyboardVisible
+                    ? 0
+                    : _bottomNavHeight + mq.padding.bottom,
               ),
               child: IndexedStack(
                 index: _currentIndex,
@@ -72,16 +75,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: SafeArea(
-                top: false,
-                child: SizedBox(
-                  height: _bottomNavHeight,
-                  child: _buildBottomNav(isAdmin),
+            if (!isKeyboardVisible)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: _bottomNavHeight,
+                    child: _buildBottomNav(isAdmin),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

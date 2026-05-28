@@ -391,7 +391,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -409,7 +409,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                   AppSpacing.lg,
                   AppSpacing.lg,
                   AppSpacing.lg,
-                  keyboardHeight + AppSpacing.md,
+                  isKeyboardVisible ? AppSpacing.sm : AppSpacing.md,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,6 +473,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
               hasGroupLink:
                   _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
               onSendToGroup: _sendToGroup,
+              isKeyboardVisible: isKeyboardVisible,
             ),
           ],
         ),
@@ -716,15 +717,19 @@ class _StickyActionBar extends StatelessWidget {
   final bool hasMessage;
   final bool hasGroupLink;
   final VoidCallback onSendToGroup;
+  final bool isKeyboardVisible;
 
   const _StickyActionBar({
     required this.hasMessage,
     required this.hasGroupLink,
     required this.onSendToGroup,
+    required this.isKeyboardVisible,
   });
 
   @override
   Widget build(BuildContext context) {
+    final verticalPadding = isKeyboardVisible ? AppSpacing.sm : AppSpacing.lg;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -738,8 +743,12 @@ class _StickyActionBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
+        bottom: !isKeyboardVisible,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: verticalPadding,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -757,8 +766,10 @@ class _StickyActionBar extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.whatsapp,
                     foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    padding: EdgeInsets.symmetric(
+                      vertical:
+                          isKeyboardVisible ? AppSpacing.md : AppSpacing.lg,
+                    ),
                     elevation: 2,
                   ),
                 ),
