@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/message_model.dart';
 import '../models/student_model.dart';
+import '../services/ai_message_service.dart';
 import '../services/firestore_service.dart';
 import '../services/whatsapp_settings_service.dart';
 import '../providers/auth_provider.dart';
@@ -20,7 +21,9 @@ class MessageBuilderScreen extends StatefulWidget {
 
 class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final WhatsAppSettingsService _whatsappSettingsService = WhatsAppSettingsService();
+  final AiMessageService _aiMessageService = AiMessageService();
+  final WhatsAppSettingsService _whatsappSettingsService =
+      WhatsAppSettingsService();
   final TextEditingController _messageController = TextEditingController();
 
   MessageCategory _selectedCategory = MessageCategory.regular;
@@ -56,7 +59,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
 
     final today = DateTime.now();
     final isMessageDay = today.weekday == DateTime.wednesday ||
-                         today.weekday == DateTime.saturday;
+        today.weekday == DateTime.saturday;
 
     if (isMessageDay) {
       final event = await _firestoreService.getMessageEventByDate(today);
@@ -142,7 +145,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
     );
 
     if (success) {
-      await _generateRandomMessage();
+      await _generateAiMessageWithFallback();
       await _checkBirthdays();
     } else {
       if (mounted) {
@@ -156,6 +159,52 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
     }
 
     setState(() => _isLoading = false);
+  }
+
+  String _getCategoryName(MessageCategory category) {
+    return MessageTemplate(
+      id: '',
+      content: '',
+      category: category,
+      createdAt: DateTime.now(),
+    ).categoryName;
+  }
+
+  Future<void> _generateAiMessageWithFallback() async {
+    final authProvider = context.read<AuthProvider>();
+    final userName = authProvider.currentUser?.name ?? 'הצוות';
+    final birthdayNames = _birthdayStudents
+        .where((student) => _selectedBirthdayStudents.contains(student.id))
+        .map((student) => student.name)
+        .toList();
+
+    try {
+      final aiMessage = await _aiMessageService.generateSalsaMessage(
+        category: _selectedCategory,
+        categoryName: _getCategoryName(_selectedCategory),
+        senderName: userName,
+        birthdayNames: birthdayNames,
+      );
+
+      setState(() {
+        _messageController.text = aiMessage;
+        _birthdayBlockAdded = birthdayNames.isNotEmpty;
+        _birthdayGreetingCache = null;
+      });
+    } catch (e) {
+      debugPrint('AI message generation failed, falling back to templates: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('יצירת AI נכשלה. נטענה תבנית קיימת במקום.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+
+      await _generateRandomMessage();
+    }
   }
 
   /// יצירת הודעה רנדומלית מהתבניות
@@ -188,7 +237,8 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   Future<void> _checkBirthdays() async {
     try {
       final students = await _firestoreService.getUpcomingBirthdayStudents();
-      print('DEBUG: נמצאו ${students.length} תלמידים עם יום הולדת קרוב. שמות: ${students.map((s) => s.name).join(', ')}');
+      print(
+          'DEBUG: נמצאו ${students.length} תלמידים עם יום הולדת קרוב. שמות: ${students.map((s) => s.name).join(', ')}');
 
       setState(() {
         _birthdayStudents = students;
@@ -201,7 +251,8 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           !_messageController.text.contains(_birthdayPlaceholder) &&
           !_birthdayBlockAdded) {
         setState(() {
-          _messageController.text = '${_messageController.text}\n\n$_birthdayPlaceholder';
+          _messageController.text =
+              '${_messageController.text}\n\n$_birthdayPlaceholder';
         });
       } else if (students.isEmpty) {
         _removeBirthdayPlaceholder();
@@ -292,7 +343,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
       _birthdayBlockAdded = false;
     });
   }
-
 
   /// יצירת טקסט הודעה סופי עם כל ה-placeholders
   String _getFinalMessageText() {
@@ -423,7 +473,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                     selectedCategory: _selectedCategory,
                     onCategoryChanged: (category) {
                       setState(() => _selectedCategory = category);
-                      _generateRandomMessage();
                     },
                   ),
                   const SizedBox(height: AppSpacing.xl),
@@ -497,7 +546,8 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           // Sticky bottom action bar
           _StickyActionBar(
             hasMessage: _messageController.text.isNotEmpty,
-            hasGroupLink: _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
+            hasGroupLink:
+                _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
             onCopy: _copyToClipboard,
             onOpenWhatsApp: _openWhatsApp,
             onSendToGroup: _sendToGroup,
@@ -586,7 +636,8 @@ class _LessonTypeChips extends StatelessWidget {
                   backgroundColor: AppColors.surfaceVariant,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                   side: BorderSide(
                     color: isSelected ? AppColors.primary : AppColors.border,
@@ -626,7 +677,8 @@ class _MessageEditorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final editorHeight = (MediaQuery.of(context).size.height * 0.25).clamp(160.0, 260.0);
+    final editorHeight =
+        (MediaQuery.of(context).size.height * 0.25).clamp(160.0, 260.0);
 
     return Card(
       elevation: 0,
@@ -658,7 +710,7 @@ class _MessageEditorCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: isLoading ? null : onGenerateMessage,
                     icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('צור הודעה'),
+                    label: const Text('צור עם AI'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
@@ -671,7 +723,8 @@ class _MessageEditorCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 // Clear button
                 IconButton(
-                  onPressed: messageController.text.isEmpty ? null : onClearMessage,
+                  onPressed:
+                      messageController.text.isEmpty ? null : onClearMessage,
                   icon: const Icon(Icons.clear, size: 20),
                   tooltip: 'נקה הודעה',
                   color: AppColors.textSecondary,
@@ -736,7 +789,8 @@ class _BirthdayMentionChips extends StatelessWidget {
       color: AppColors.accent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.primaryLight.withValues(alpha: 0.3), width: 1),
+        side: BorderSide(
+            color: AppColors.primaryLight.withValues(alpha: 0.3), width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -778,7 +832,8 @@ class _BirthdayMentionChips extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: birthdayStudents.map((student) {
-                final isSelected = selectedBirthdayStudents.contains(student.id);
+                final isSelected =
+                    selectedBirthdayStudents.contains(student.id);
 
                 return FilterChip(
                   label: Row(
@@ -796,7 +851,8 @@ class _BirthdayMentionChips extends StatelessWidget {
                   checkmarkColor: Colors.white,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                   side: BorderSide(
                     color: isSelected ? AppColors.primary : AppColors.border,
@@ -823,17 +879,21 @@ class _BirthdayMentionChips extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
                       ),
                     )
                   : ElevatedButton.icon(
-                      onPressed: selectedBirthdayStudents.isEmpty ? null : onAddMention,
+                      onPressed: selectedBirthdayStudents.isEmpty
+                          ? null
+                          : onAddMention,
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('הוסף אזכור'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
                       ),
                     ),
             ),
@@ -893,7 +953,8 @@ class _StickyActionBar extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
                       ),
                     ),
                   ),
@@ -906,7 +967,8 @@ class _StickyActionBar extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
                       ),
                     ),
                   ),
@@ -919,7 +981,8 @@ class _StickyActionBar extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (hasMessage && hasGroupLink) ? onSendToGroup : null,
+                  onPressed:
+                      (hasMessage && hasGroupLink) ? onSendToGroup : null,
                   icon: const Icon(Icons.send, size: 20),
                   label: const Text(
                     'שלח ב-WhatsApp',
@@ -928,7 +991,8 @@ class _StickyActionBar extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.whatsapp,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                     elevation: 2,
                   ),
                 ),

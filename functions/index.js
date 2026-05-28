@@ -1,8 +1,268 @@
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {logger} = require("firebase-functions/v2");
 
 admin.initializeApp();
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_API_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/` +
+  `${GEMINI_MODEL}:generateContent`;
+
+const CATEGORY_LABELS = {
+  regular: "היום ביילה",
+  pace: "שיעור קצב",
+  afro: "שיעור אפרו",
+  pachanga: "שיעור פצ'אנגה",
+  laPrep: "הכנה ל-LA",
+  shines: "הפלות",
+};
+
+/**
+ * Normalizes a short string passed from the client.
+ * @param {*} value Raw value from the callable payload.
+ * @param {string} fallback Value to use when the raw value is not a string.
+ * @return {string} Trimmed and length-limited string.
+ */
+function cleanString(value, fallback = "") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return value.trim().slice(0, 200);
+}
+
+/**
+ * Normalizes birthday names passed from the client.
+ * @param {*} value Raw birthday names value from the callable payload.
+ * @return {string[]} Up to five non-empty names.
+ */
+function cleanBirthdayNames(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+      .filter((name) => typeof name === "string")
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+}
+
+/**
+ * Builds the Hebrew prompt used for WhatsApp salsa message generation.
+ * @param {Object} data Callable payload from the Flutter app.
+ * @param {string} retryReason Optional retry instruction when output was short.
+ * @return {string} Prompt for Gemini.
+ */
+function buildSalsaPrompt(data, retryReason = "") {
+  const category = cleanString(data.category, "regular");
+  const categoryName =
+    cleanString(data.categoryName) ||
+    CATEGORY_LABELS[category] ||
+    CATEGORY_LABELS.regular;
+  const senderName = cleanString(data.senderName, "הצוות");
+  const tone = cleanString(data.tone, "קליל, אנרגטי, חברי");
+  const maxLength = Number.isInteger(data.maxLength) ?
+    Math.min(Math.max(data.maxLength, 120), 900) :
+    550;
+  const minLength = Number.isInteger(data.minLength) ?
+    Math.min(Math.max(data.minLength, 120), maxLength) :
+    260;
+  const birthdayNames = cleanBirthdayNames(data.birthdayNames);
+  const today = new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+  }).format(new Date());
+
+  const birthdayLine = birthdayNames.length > 0 ?
+    birthdayNames.join(", ") :
+    "אין";
+
+  return [
+    "אתה כותב הודעות WhatsApp קצרות בעברית לקבוצת תלמידי סלסה.",
+    "",
+    "כתוב הודעה אחת בלבד, אבל מלאה ומוכנה לשליחה.",
+    `סגנון: ${tone}.`,
+    `אורך רצוי: בין ${minLength} ל-${maxLength} תווים.`,
+    "מבנה רצוי: פתיחה חמה, משפט על השיעור, הזמנה להגיע לרקוד, וסיום קצר.",
+    "כתוב 3 עד 5 שורות קצרות שמתאימות ל-WhatsApp.",
+    "הטקסט חייב להיות הודעה שלמה, לא התחלה של משפט ולא ציטוט קצר.",
+    "אל תעצור אחרי שורה אחת.",
+    "אל תכתוב הסברים, כותרות או כמה אפשרויות.",
+    "אל תמציא שעה, מיקום, מחיר או שם סטודיו אם הם לא נמסרו.",
+    "אפשר להשתמש באימוג'ים במידה, אבל לא להגזים.",
+    "ההודעה צריכה להרגיש טבעית לקבוצת WhatsApp.",
+    "אל תענה במילים בודדות. אל תכתוב רק סלוגן.",
+    "",
+    "פרטים:",
+    `יום: ${today}`,
+    `סוג שיעור: ${categoryName}`,
+    `שם שולח: ${senderName}`,
+    `ימי הולדת לציון: ${birthdayLine}`,
+    "",
+    "דוגמה לאורך ולמבנה בלבד, אל תעתיק אותה:",
+    "היי כולם 💃",
+    "היום נפגשים לעוד ערב של סלסה, אנרגיות טובות ורחבה מלאה.",
+    "נמשיך לעבוד על התנועה, הקצב והחיבור בין כולם.",
+    "תגיעו עם מצב רוח לרקוד, נתראה על הרחבה!",
+    "",
+    retryReason ? `שים לב: ${retryReason}` : "",
+    retryReason ? "" : "",
+    "אם יש ימי הולדת, שלב ברכה קצרה בסוף ההודעה.",
+    "סיים בקריאה טבעית להגיע לרקוד.",
+  ].join("\n");
+}
+
+/**
+ * Reads the desired minimum message length from callable payload.
+ * @param {Object} data Callable payload from the Flutter app.
+ * @return {number} Minimum accepted generated message length.
+ */
+function getMinLength(data) {
+  return Number.isInteger(data.minLength) ?
+    Math.min(Math.max(data.minLength, 120), 900) :
+    260;
+}
+
+/**
+ * Extracts the first text answer from a Gemini generateContent response.
+ * @param {Object} responseJson Parsed Gemini API response.
+ * @return {string} Generated message text, or an empty string.
+ */
+function extractGeminiText(responseJson) {
+  const candidates = responseJson && responseJson.candidates;
+  const firstCandidate = Array.isArray(candidates) && candidates[0];
+  const content = firstCandidate && firstCandidate.content;
+  const parts = content && content.parts;
+  if (!Array.isArray(parts)) {
+    return "";
+  }
+  return parts
+      .map((part) => typeof part.text === "string" ? part.text : "")
+      .join("")
+      .trim();
+}
+
+/**
+ * Calls Gemini and returns the raw generated message text.
+ * @param {string} apiKey Gemini API key.
+ * @param {string} prompt Prompt to send.
+ * @return {Promise<string>} Generated text.
+ */
+async function callGemini(apiKey, prompt) {
+  const response = await fetch(GEMINI_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{text: prompt}],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.9,
+        topP: 0.95,
+        maxOutputTokens: 700,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+      },
+    }),
+  });
+
+  const responseJson = await response.json();
+  if (!response.ok) {
+    logger.error("Gemini API error", {
+      status: response.status,
+      body: responseJson,
+    });
+    throw new HttpsError(
+        "resource-exhausted",
+        "Gemini could not generate a message right now.",
+    );
+  }
+
+  const message = extractGeminiText(responseJson);
+  const finishReason = responseJson &&
+    responseJson.candidates &&
+    responseJson.candidates[0] &&
+    responseJson.candidates[0].finishReason;
+
+  logger.info("Gemini message generated", {
+    length: message.length,
+    finishReason: finishReason || "UNKNOWN",
+    model: GEMINI_MODEL,
+  });
+
+  return message;
+}
+
+exports.generateSalsaMessage = onCall(
+    {
+      region: "us-central1",
+      timeoutSeconds: 45,
+      memory: "256MiB",
+      secrets: ["GEMINI_API_KEY"],
+    },
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError(
+            "unauthenticated",
+            "You must be signed in to generate a message.",
+        );
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new HttpsError(
+            "failed-precondition",
+            "GEMINI_API_KEY is not configured for Firebase Functions.",
+        );
+      }
+
+      const payload = request.data || {};
+      const minLength = getMinLength(payload);
+      const prompt = buildSalsaPrompt(payload);
+
+      try {
+        let message = await callGemini(apiKey, prompt);
+        if (message.length < minLength) {
+          const retryPrompt = buildSalsaPrompt(
+              payload,
+              `התגובה הקודמת היתה קצרה מדי (${message.length} תווים). ` +
+              `כתוב הודעה מלאה של לפחות ${minLength} תווים.`,
+          );
+          message = await callGemini(apiKey, retryPrompt);
+        }
+
+        if (!message) {
+          logger.error("Gemini returned an empty response");
+          throw new HttpsError(
+              "internal",
+              "Gemini returned an empty message.",
+          );
+        }
+
+        return {
+          message,
+          model: GEMINI_MODEL,
+        };
+      } catch (error) {
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        logger.error("Failed to generate Gemini message", error);
+        throw new HttpsError(
+            "internal",
+            "Could not generate a message.",
+        );
+      }
+    },
+);
 
 // תזכורת רביעי ב-22:50 (לבדיקה)
 exports.wednesdayReminder = onSchedule(
