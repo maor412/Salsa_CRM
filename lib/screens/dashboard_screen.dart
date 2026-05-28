@@ -5,9 +5,70 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/dashboard_provider.dart';
 import '../config/app_theme.dart';
-import '../widgets/app_card.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/app_dialog.dart';
+
+class _DashboardPanel extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final Widget child;
+
+  const _DashboardPanel({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.largeRadius,
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.55)),
+        boxShadow: AppShadows.small,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.mediumRadius,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          child,
+        ],
+      ),
+    );
+  }
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,28 +100,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onRefresh: provider.refresh,
           color: AppColors.primary,
           child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.xxl,
+            ),
             children: [
-              // התראות קומפקטיות למעלה
               if (data.alerts.isNotEmpty) ...[
                 _buildCompactAlerts(data.alerts),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
               ],
-
-              // שורת KPI קומפקטית (3 אריחים)
               _buildKPIRow(data),
-              const SizedBox(height: AppSpacing.lg),
-
-              // כרטיס נוכחות מפורט עם Donut Chart
+              const SizedBox(height: AppSpacing.md),
               _buildAttendanceCard(data),
-              const SizedBox(height: AppSpacing.lg),
-
-              // כרטיס התקדמות תרגילים מפורט
+              const SizedBox(height: AppSpacing.md),
               _buildExercisesProgressCard(data),
-              const SizedBox(height: AppSpacing.lg),
-
-              // ימי הולדת השבוע (בסוף)
               if (data.birthdayStudents.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
                 _buildBirthdaySection(data.birthdayStudents),
               ],
             ],
@@ -70,122 +127,119 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // התראות קומפקטיות
   Widget _buildCompactAlerts(List<String> alerts) {
-    if (alerts.length == 1) {
-      return _buildSingleAlert(alerts[0]);
-    }
+    final message = alerts.length == 1
+        ? alerts.first
+        : '${alerts.length} התראות דורשות תשומת לב';
 
-    // מספר התראות - כרטיס מתקפל
-    return AppCard(
-      color: AppColors.warningLight,
-      hasBorder: false,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      onTap: () => _showAlertsSheet(context, alerts),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            decoration: BoxDecoration(
-              color: AppColors.warning,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+    return InkWell(
+      onTap: alerts.length > 1 ? () => _showAlertsSheet(context, alerts) : null,
+      borderRadius: AppRadius.mediumRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.warningLight,
+          borderRadius: AppRadius.mediumRadius,
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.18),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              '${alerts.length} התראות דורשות תשומת לב',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.12),
+                borderRadius: AppRadius.smallRadius,
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
                 color: AppColors.warning,
+                size: 20,
               ),
             ),
-          ),
-          Icon(
-            Icons.chevron_left_rounded,
-            color: AppColors.warning,
-            size: 20,
-          ),
-        ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.warning,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (alerts.length > 1)
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.warning,
+                size: 22,
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSingleAlert(String message) {
-    return AppCard(
-      color: AppColors.warningLight,
-      hasBorder: false,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: AppColors.warning,
-            size: 20,
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.warning,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // שורת KPI קומפקטית
   Widget _buildKPIRow(data) {
-    return Row(
-      children: [
-        // אריח נוכחות
-        Expanded(
-          child: _buildMiniKPICard(
-            title: 'נוכחות',
-            value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
-            icon: Icons.people_rounded,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        // אריח התקדמות
-        Expanded(
-          child: _buildMiniKPICard(
-            title: 'תרגילים',
-            value: '${data.exercisesProgress.toStringAsFixed(0)}%',
-            icon: Icons.fitness_center_rounded,
-            color: AppColors.success,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        // אריח מחסירים
-        Expanded(
-          child: GestureDetector(
-            onTap: () => _showAbsenteesSheet(context),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.largeRadius,
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.55)),
+        boxShadow: AppShadows.small,
+      ),
+      child: Row(
+        children: [
+          Expanded(
             child: _buildMiniKPICard(
-              title: 'מחסירים',
-              value: '${data.studentsWithThreeAbsences}',
-              icon: Icons.person_off_rounded,
-              color: data.studentsWithThreeAbsences > 0
-                  ? AppColors.error
-                  : AppColors.success,
+              title: 'נוכחות',
+              value: '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
+              icon: Icons.people_rounded,
+              color: AppColors.primary,
             ),
           ),
-        ),
-      ],
+          _buildKPIDivider(),
+          Expanded(
+            child: _buildMiniKPICard(
+              title: 'תרגילים',
+              value: '${data.exercisesProgress.toStringAsFixed(0)}%',
+              icon: Icons.fitness_center_rounded,
+              color: AppColors.success,
+            ),
+          ),
+          _buildKPIDivider(),
+          Expanded(
+            child: InkWell(
+              onTap: () => _showAbsenteesSheet(context),
+              borderRadius: AppRadius.mediumRadius,
+              child: _buildMiniKPICard(
+                title: 'מחסירים',
+                value: '${data.studentsWithThreeAbsences}',
+                icon: Icons.person_off_rounded,
+                color: data.studentsWithThreeAbsences > 0
+                    ? AppColors.error
+                    : AppColors.success,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKPIDivider() {
+    return Container(
+      width: 1,
+      height: 54,
+      color: AppColors.divider,
     );
   }
 
@@ -195,10 +249,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.md,
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: AppSpacing.sm),
@@ -206,16 +263,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             value,
             style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: color,
+              height: 1,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             title,
             style: const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
@@ -224,61 +282,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // כרטיס נוכחות מפורט עם Donut Chart סגול
   Widget _buildAttendanceCard(data) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final percentage = data.lastSessionAttendanceRate;
+    final presentText = '${percentage.toStringAsFixed(0)}%';
+
+    return _DashboardPanel(
+      icon: Icons.people_rounded,
+      iconColor: AppColors.primary,
+      title: 'נוכחות בשיעור האחרון',
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.smallRadius,
-                ),
-                child: const Icon(
-                  Icons.people_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
-                child: Text(
-                  'נוכחות בשיעור האחרון',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Center(
-            child: Column(
+          SizedBox(
+            width: 116,
+            height: 116,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                SizedBox(
-                  height: 140,
-                  child: _buildDonutChart(data.lastSessionAttendanceRate),
+                _buildDonutChart(percentage),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      presentText,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'הגיעו',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusLine(
+                  color: AppColors.primary,
+                  label: 'נוכחות כללית',
+                  value: presentText,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  '${data.lastSessionAttendanceRate.toStringAsFixed(0)}%',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                ClipRRect(
+                  borderRadius: AppRadius.roundRadius,
+                  child: LinearProgressIndicator(
+                    value: (percentage / 100).clamp(0.0, 1.0),
+                    minHeight: 10,
+                    backgroundColor: AppColors.accent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.md),
                 const Text(
-                  'נוכחות כללית',
+                  'מדד מהשיעור האחרון שנשמר',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
@@ -291,127 +364,131 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildStatusLine({
+    required Color color,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDonutChart(double percentage) {
     return PieChart(
       PieChartData(
         sections: [
           PieChartSectionData(
-            value: percentage,
+            value: percentage.clamp(0, 100),
             color: AppColors.primary,
             title: '',
-            radius: 28,
+            radius: 16,
           ),
           PieChartSectionData(
-            value: 100 - percentage,
+            value: (100 - percentage).clamp(0, 100),
             color: AppColors.accent,
             title: '',
-            radius: 28,
+            radius: 16,
           ),
         ],
-        sectionsSpace: 0,
-        centerSpaceRadius: 45,
+        sectionsSpace: 2,
+        centerSpaceRadius: 38,
       ),
     );
   }
 
-  // כרטיס התקדמות תרגילים מפורט
   Widget _buildExercisesProgressCard(data) {
-    final completed = (data.exercisesProgress / 100 * 100).round();
-    final total = 100;
+    final completed = data.exercisesProgress.round();
+    final progress = (data.exercisesProgress / 100).clamp(0.0, 1.0);
 
-    return AppCard(
+    return _DashboardPanel(
+      icon: Icons.fitness_center_rounded,
+      iconColor: AppColors.success,
+      title: 'התקדמות תרגילים',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.smallRadius,
-                ),
-                child: const Icon(
-                  Icons.fitness_center_rounded,
-                  color: AppColors.success,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
-                child: Text(
-                  'התקדמות תרגילים',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: AppRadius.largeRadius,
-                  child: LinearProgressIndicator(
-                    value: data.exercisesProgress / 100,
-                    minHeight: 12,
-                    backgroundColor: AppColors.successLight,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.success),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
               Text(
                 '${data.exercisesProgress.toStringAsFixed(0)}%',
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.success,
-                  fontSize: 18,
+                  height: 1,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
+          ClipRRect(
+            borderRadius: AppRadius.roundRadius,
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 12,
+              backgroundColor: AppColors.successLight,
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.success),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Text(
-                'הושלמו $completed מתוך $total תרגילים',
+                'הושלמו $completed מתוך 100 תרגילים',
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               if (data.currentExerciseLevel.isNotEmpty) ...[
-                const SizedBox(width: AppSpacing.sm),
-                const Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
+                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs - 2,
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.largeRadius,
+                    color: AppColors.successLight,
+                    borderRadius: AppRadius.roundRadius,
                   ),
                   child: Text(
                     data.currentExerciseLevel,
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.success,
                     ),
                   ),
                 ),
@@ -423,83 +500,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // כרטיס ימי הולדת משודרג
   Widget _buildBirthdaySection(List students) {
-    return AppCard(
-      color: AppColors.accent,
-      child: Column(
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: AppRadius.largeRadius,
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: AppRadius.smallRadius,
-                ),
-                child: const Icon(
-                  Icons.cake_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
-                child: Text(
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.14),
+              borderRadius: AppRadius.mediumRadius,
+            ),
+            child: const Icon(
+              Icons.cake_rounded,
+              color: AppColors.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
                   'ימי הולדת השבוע',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: students
+                      .map(
+                        (student) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            borderRadius: AppRadius.roundRadius,
+                          ),
+                          child: Text(
+                            student.name,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: AppRadius.largeRadius,
-                ),
-                child: Text(
-                  '${students.length}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          ...students.map((student) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primary.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      student.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              )),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.14),
+              borderRadius: AppRadius.roundRadius,
+            ),
+            child: Text(
+              '${students.length}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
         ],
       ),
     );
