@@ -34,7 +34,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   String? _whatsappGroupLink;
   bool _birthdayBlockAdded = false;
   static const String _birthdayPlaceholder = '{{BIRTHDAY_BLOCK}}';
-  String? _birthdayGreetingCache;
 
   @override
   void initState() {
@@ -195,9 +194,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           birthdayNames,
         );
         _birthdayBlockAdded = birthdayNames.isNotEmpty;
-        _birthdayGreetingCache = birthdayNames.isNotEmpty
-            ? _buildBirthdayGreeting(birthdayNames)
-            : null;
       });
     } catch (e) {
       debugPrint('AI message generation failed, falling back to templates: $e');
@@ -312,66 +308,12 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
     return '$cleanMessage\n\n${_buildBirthdayGreeting(birthdayNames)}'.trim();
   }
 
-  void _addBirthdayGreeting() {
-    if (_selectedBirthdayStudents.isEmpty) return;
-
-    final greetingBlock = _buildBirthdayGreeting();
-
-    setState(() {
-      if (_messageController.text.contains(_birthdayPlaceholder)) {
-        _messageController.text = _messageController.text.replaceAll(
-          _birthdayPlaceholder,
-          greetingBlock,
-        );
-      } else if (_birthdayGreetingCache != null &&
-          _messageController.text.contains(_birthdayGreetingCache!)) {
-        _messageController.text = _messageController.text.replaceAll(
-          _birthdayGreetingCache!,
-          greetingBlock,
-        );
-      } else {
-        if (_messageController.text.trim().isNotEmpty) {
-          _messageController.text =
-              '${_messageController.text.trim()}\n\n$greetingBlock';
-        } else {
-          _messageController.text = greetingBlock;
-        }
-      }
-      _birthdayGreetingCache = greetingBlock;
-      _birthdayBlockAdded = true;
-    });
-  }
-
-  /// הסרת ברכה ליום הולדת והוספת placeholder
-  void _removeBirthdayGreeting() {
-    setState(() {
-      if (_birthdayGreetingCache != null &&
-          _messageController.text.contains(_birthdayGreetingCache!)) {
-        _messageController.text = _messageController.text.replaceAll(
-          _birthdayGreetingCache!,
-          _birthdayPlaceholder,
-        );
-      }
-      if (!_messageController.text.contains(_birthdayPlaceholder)) {
-        if (_messageController.text.trim().isNotEmpty) {
-          _messageController.text =
-              '${_messageController.text.trim()}\n\n$_birthdayPlaceholder';
-        } else {
-          _messageController.text = _birthdayPlaceholder;
-        }
-      }
-      _birthdayGreetingCache = null;
-      _birthdayBlockAdded = false;
-    });
-  }
-
   void _removeBirthdayPlaceholder() {
     setState(() {
       _messageController.text = _messageController.text.replaceAll(
         _birthdayPlaceholder,
         '',
       );
-      _birthdayGreetingCache = null;
       _birthdayBlockAdded = false;
     });
   }
@@ -398,29 +340,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-    }
-  }
-
-  /// פתיחת WhatsApp (כללי - ללא הודעה)
-  Future<void> _openWhatsApp() async {
-    final finalText = _getFinalMessageText();
-    final message = Uri.encodeComponent(finalText);
-    final appUrl = Uri.parse('whatsapp://send?text=$message');
-    final webUrl = Uri.parse('https://wa.me/?text=$message');
-
-    if (await canLaunchUrl(appUrl)) {
-      await launchUrl(appUrl, mode: LaunchMode.externalApplication);
-    } else if (await canLaunchUrl(webUrl)) {
-      await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('לא ניתן לפתוח את WhatsApp'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -517,37 +436,12 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                     isLoading: _isLoading,
                     currentEvent: _currentEvent,
                     onGenerateMessage: _handleLockEvent,
+                    onCopyMessage: _copyToClipboard,
                     onClearMessage: () {
                       setState(() => _messageController.clear());
                     },
                   ),
                   const SizedBox(height: AppSpacing.md),
-
-                  // Birthday section
-                  if (_birthdayStudents.isNotEmpty) ...[
-                    _BirthdayMentionChips(
-                      birthdayStudents: _birthdayStudents,
-                      selectedBirthdayStudents: _selectedBirthdayStudents,
-                      birthdayBlockAdded: _birthdayBlockAdded,
-                      onToggleStudent: (studentId) {
-                        setState(() {
-                          if (_selectedBirthdayStudents.contains(studentId)) {
-                            _selectedBirthdayStudents.remove(studentId);
-                          } else {
-                            _selectedBirthdayStudents.add(studentId);
-                          }
-                          // אם הבלוק כבר נוסף, עדכן אותו אוטומטית
-                          if (_birthdayBlockAdded) {
-                            _removeBirthdayGreeting();
-                            _addBirthdayGreeting();
-                          }
-                        });
-                      },
-                      onAddMention: _addBirthdayGreeting,
-                      onRemoveMention: _removeBirthdayGreeting,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
 
                   // Step 3: שיתוף/שליחה
                   _buildStepHeader('3', 'שיתוף/שליחה'),
@@ -580,8 +474,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
             hasMessage: _messageController.text.isNotEmpty,
             hasGroupLink:
                 _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
-            onCopy: _copyToClipboard,
-            onOpenWhatsApp: _openWhatsApp,
             onSendToGroup: _sendToGroup,
           ),
         ],
@@ -697,6 +589,7 @@ class _MessageEditorCard extends StatelessWidget {
   final bool isLoading;
   final MessageEvent? currentEvent;
   final VoidCallback onGenerateMessage;
+  final VoidCallback onCopyMessage;
   final VoidCallback onClearMessage;
 
   const _MessageEditorCard({
@@ -704,6 +597,7 @@ class _MessageEditorCard extends StatelessWidget {
     required this.isLoading,
     required this.currentEvent,
     required this.onGenerateMessage,
+    required this.onCopyMessage,
     required this.onClearMessage,
   });
 
@@ -772,165 +666,44 @@ class _MessageEditorCard extends StatelessWidget {
             height: editorHeight.toDouble(),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: TextField(
-                controller: messageController,
-                textDirection: TextDirection.rtl,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: const TextStyle(fontSize: 15, height: 1.5),
-                decoration: const InputDecoration(
-                  hintText: 'ההודעה תופיע כאן...\nאו ערוך בעצמך',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
+              child: Stack(
+                children: [
+                  TextField(
+                    controller: messageController,
+                    textDirection: TextDirection.rtl,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    style: const TextStyle(fontSize: 15, height: 1.5),
+                    decoration: const InputDecoration(
+                      hintText: 'ההודעה תופיע כאן...\nאו ערוך בעצמך',
+                      hintStyle: TextStyle(color: AppColors.textHint),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: IconButton(
+                      onPressed: onCopyMessage,
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: 'העתק הודעה',
+                      color: AppColors.primary,
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: 0.08),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(34, 34),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// COMPONENT: Birthday Mention Chips
-// ============================================================================
-class _BirthdayMentionChips extends StatelessWidget {
-  final List<StudentModel> birthdayStudents;
-  final Set<String> selectedBirthdayStudents;
-  final bool birthdayBlockAdded;
-  final ValueChanged<String> onToggleStudent;
-  final VoidCallback onAddMention;
-  final VoidCallback onRemoveMention;
-
-  const _BirthdayMentionChips({
-    required this.birthdayStudents,
-    required this.selectedBirthdayStudents,
-    required this.birthdayBlockAdded,
-    required this.onToggleStudent,
-    required this.onAddMention,
-    required this.onRemoveMention,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: AppColors.accent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-            color: AppColors.primaryLight.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.cake,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                const Expanded(
-                  child: Text(
-                    'ימי הולדת קרובים',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // Student chips
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: birthdayStudents.map((student) {
-                final isSelected =
-                    selectedBirthdayStudents.contains(student.id);
-
-                return FilterChip(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('🎂'),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(student.name),
-                    ],
-                  ),
-                  selected: isSelected,
-                  onSelected: (_) => onToggleStudent(student.id),
-                  selectedColor: AppColors.primaryLight,
-                  backgroundColor: Colors.white,
-                  checkmarkColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: AppSpacing.md),
-
-            // Action button
-            SizedBox(
-              width: double.infinity,
-              child: birthdayBlockAdded
-                  ? OutlinedButton.icon(
-                      onPressed: onRemoveMention,
-                      icon: const Icon(Icons.remove, size: 18),
-                      label: const Text('הסר אזכור'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      ),
-                    )
-                  : ElevatedButton.icon(
-                      onPressed: selectedBirthdayStudents.isEmpty
-                          ? null
-                          : onAddMention,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('הוסף אזכור'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      ),
-                    ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -942,15 +715,11 @@ class _BirthdayMentionChips extends StatelessWidget {
 class _StickyActionBar extends StatelessWidget {
   final bool hasMessage;
   final bool hasGroupLink;
-  final VoidCallback onCopy;
-  final VoidCallback onOpenWhatsApp;
   final VoidCallback onSendToGroup;
 
   const _StickyActionBar({
     required this.hasMessage,
     required this.hasGroupLink,
-    required this.onCopy,
-    required this.onOpenWhatsApp,
     required this.onSendToGroup,
   });
 
@@ -974,41 +743,6 @@ class _StickyActionBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Secondary actions row
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: hasMessage ? onCopy : null,
-                      icon: const Icon(Icons.copy, size: 18),
-                      label: const Text('העתק'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: hasMessage ? onOpenWhatsApp : null,
-                      icon: const Icon(Icons.chat, size: 18),
-                      label: const Text('WhatsApp'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: AppSpacing.md),
-
               // Primary CTA button
               SizedBox(
                 width: double.infinity,

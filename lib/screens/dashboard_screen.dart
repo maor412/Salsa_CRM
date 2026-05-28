@@ -720,7 +720,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             vertical: AppSpacing.sm,
                           ),
                           leading: CircleAvatar(
-                            backgroundColor: AppColors.error.withValues(alpha: 0.1),
+                            backgroundColor:
+                                AppColors.error.withValues(alpha: 0.1),
                             child: Text(
                               item.student.name.isNotEmpty
                                   ? item.student.name[0].toUpperCase()
@@ -747,22 +748,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           trailing: IconButton(
                             icon: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF25D366),
+                                color: AppColors.error.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: SvgPicture.asset(
                                 'assets/icon/whatsapp_icon.svg',
-                                width: 22,
-                                height: 22,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
-                                  BlendMode.srcIn,
-                                ),
+                                width: 24,
+                                height: 24,
                               ),
                             ),
-                            onPressed: () => _openWhatsApp(item.student.phoneNumber),
+                            onPressed: () =>
+                                _openWhatsApp(item.student.phoneNumber),
                             tooltip: 'שליחת הודעה בווטסאפ',
                             style: IconButton.styleFrom(
                               padding: EdgeInsets.zero,
@@ -785,7 +783,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
 
     // וידוא שהמספר מתחיל ב-+ (נדרש לפורמט בינלאומי)
-    final formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : '+972${cleanPhone.replaceFirst(RegExp(r'^0'), '')}';
+    final formattedPhone = cleanPhone.startsWith('+')
+        ? cleanPhone
+        : '+972${cleanPhone.replaceFirst(RegExp(r'^0'), '')}';
 
     final url = Uri.parse('https://wa.me/$formattedPhone');
 
@@ -800,4 +800,3 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 }
-
