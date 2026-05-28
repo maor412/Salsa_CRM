@@ -42,15 +42,14 @@ class FirestoreService {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          final students = snapshot.docs
-              .map((doc) => StudentModel.fromFirestore(doc))
-              .toList();
+      final students =
+          snapshot.docs.map((doc) => StudentModel.fromFirestore(doc)).toList();
 
-          // מיון ידני לפי שם (במקום orderBy שדורש אינדקס)
-          students.sort((a, b) => a.name.compareTo(b.name));
+      // מיון ידני לפי שם (במקום orderBy שדורש אינדקס)
+      students.sort((a, b) => a.name.compareTo(b.name));
 
-          return students;
-        });
+      return students;
+    });
   }
 
   /// קבלת תלמידים עם יום הולדת בטווח
@@ -65,7 +64,8 @@ class FirestoreService {
 
     return students.docs
         .map((doc) => StudentModel.fromFirestore(doc))
-        .where((student) => student.hasBirthdayInRange(date, daysRange: daysRange))
+        .where(
+            (student) => student.hasBirthdayInRange(date, daysRange: daysRange))
         .toList();
   }
 
@@ -122,7 +122,8 @@ class FirestoreService {
   }
 
   /// קבלת מפגשי נוכחות אחרונים
-  Stream<List<AttendanceSession>> getRecentAttendanceSessions({int limit = 10}) {
+  Stream<List<AttendanceSession>> getRecentAttendanceSessions(
+      {int limit = 10}) {
     return _firestore
         .collection(FirebaseConfig.attendanceSessionsCollection)
         .orderBy('date', descending: true)
@@ -133,6 +134,20 @@ class FirestoreService {
             .toList());
   }
 
+  Future<List<AttendanceSession>> getRecentAttendanceSessionsOnce({
+    int limit = 10,
+  }) async {
+    final snapshot = await _firestore
+        .collection(FirebaseConfig.attendanceSessionsCollection)
+        .orderBy('date', descending: true)
+        .limit(limit)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => AttendanceSession.fromFirestore(doc))
+        .toList();
+  }
+
   /// קבלת רשומות נוכחות לפי מפגש
   Future<List<AttendanceRecord>> getAttendanceRecordsBySession(
     String sessionId,
@@ -140,6 +155,21 @@ class FirestoreService {
     final snapshot = await _firestore
         .collection(FirebaseConfig.attendanceRecordsCollection)
         .where('sessionId', isEqualTo: sessionId)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => AttendanceRecord.fromFirestore(doc))
+        .toList();
+  }
+
+  Future<List<AttendanceRecord>> getAttendanceRecordsBySessions(
+    List<String> sessionIds,
+  ) async {
+    if (sessionIds.isEmpty) return [];
+
+    final snapshot = await _firestore
+        .collection(FirebaseConfig.attendanceRecordsCollection)
+        .where('sessionId', whereIn: sessionIds)
         .get();
 
     return snapshot.docs
@@ -196,7 +226,8 @@ class FirestoreService {
     }
 
     return {
-      'attendanceRate': sessionIds.isEmpty ? 0.0 : (attended / sessionIds.length) * 100,
+      'attendanceRate':
+          sessionIds.isEmpty ? 0.0 : (attended / sessionIds.length) * 100,
       'consecutiveAbsences': consecutiveAbsences,
       'totalSessions': sessionIds.length,
       'attended': attended,
@@ -238,9 +269,8 @@ class FirestoreService {
       final batch = _firestore.batch();
 
       for (final exerciseData in DefaultExercises.exercises) {
-        final docRef = _firestore
-            .collection(FirebaseConfig.exercisesCollection)
-            .doc();
+        final docRef =
+            _firestore.collection(FirebaseConfig.exercisesCollection).doc();
 
         final exercise = ExerciseModel(
           id: docRef.id,
@@ -262,9 +292,8 @@ class FirestoreService {
   /// מחיקה ואיתחול מחדש של כל התרגילים
   Future<void> resetExercises() async {
     // מחיקת כל התרגילים הקיימים
-    final existingExercises = await _firestore
-        .collection(FirebaseConfig.exercisesCollection)
-        .get();
+    final existingExercises =
+        await _firestore.collection(FirebaseConfig.exercisesCollection).get();
 
     final batch = _firestore.batch();
 
@@ -275,9 +304,8 @@ class FirestoreService {
 
     // הוספת התרגילים החדשים
     for (final exerciseData in DefaultExercises.exercises) {
-      final docRef = _firestore
-          .collection(FirebaseConfig.exercisesCollection)
-          .doc();
+      final docRef =
+          _firestore.collection(FirebaseConfig.exercisesCollection).doc();
 
       final exercise = ExerciseModel(
         id: docRef.id,
@@ -366,7 +394,8 @@ class FirestoreService {
 
     final snapshot = await _firestore
         .collection(FirebaseConfig.messageEventsCollection)
-        .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('scheduledDate',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
         .limit(1)
         .get();

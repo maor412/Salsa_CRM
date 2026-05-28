@@ -46,6 +46,16 @@ class StudentAbsenceInfo {
 }
 
 /// Provider לנתוני Dashboard
+class _DashboardAttendanceSummary {
+  final double lastSessionAttendanceRate;
+  final List<StudentAbsenceInfo> studentsWithConsecutiveAbsences;
+
+  const _DashboardAttendanceSummary({
+    required this.lastSessionAttendanceRate,
+    required this.studentsWithConsecutiveAbsences,
+  });
+}
+
 class DashboardProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
 
@@ -62,27 +72,29 @@ class DashboardProvider with ChangeNotifier {
 
     try {
       // קבלת כל הנתונים במקביל
-      final results = await Future.wait([
-        _getLastSessionAttendanceRate(),
-        _getStudentsWithThreeAbsences(),
+      final students = await _firestoreService.getActiveStudents().first;
+      final results = await Future.wait<Object>([
+        _getAttendanceSummary(students),
         _getExercisesProgressAndLevel(),
-        _getBirthdayStudents(),
+        Future.value(_getBirthdayStudents(students)),
       ]);
 
-      final absences = results[1] as List<StudentAbsenceInfo>;
-      final exercisesData = results[2] as Map<String, dynamic>;
+      final attendanceSummary = results[0] as _DashboardAttendanceSummary;
+      final absences = attendanceSummary.studentsWithConsecutiveAbsences;
+      final exercisesData = results[1] as Map<String, dynamic>;
+      final birthdayStudents = results[2] as List<StudentModel>;
       final alerts = await _generateAlerts(
         studentsWithAbsences: absences.length,
-        birthdayStudents: results[3] as List<StudentModel>,
+        birthdayStudents: birthdayStudents,
       );
 
       _data = DashboardData(
-        lastSessionAttendanceRate: results[0] as double,
+        lastSessionAttendanceRate: attendanceSummary.lastSessionAttendanceRate,
         studentsWithThreeAbsences: absences.length,
         studentsWithConsecutiveAbsences: absences,
         exercisesProgress: exercisesData['progress'] as double,
         alerts: alerts,
-        birthdayStudents: results[3] as List<StudentModel>,
+        birthdayStudents: birthdayStudents,
         currentExerciseLevel: exercisesData['currentLevel'] as String,
       );
     } catch (e) {
@@ -94,41 +106,56 @@ class DashboardProvider with ChangeNotifier {
   }
 
   /// חישוב אחוז הגעה לשיעור האחרון
-  Future<double> _getLastSessionAttendanceRate() async {
+  Future<_DashboardAttendanceSummary> _getAttendanceSummary(
+    List<StudentModel> students,
+  ) async {
     try {
-      final sessions = await _firestoreService
-          .getRecentAttendanceSessions(limit: 1)
-          .first;
+      final sessions =
+          await _firestoreService.getRecentAttendanceSessionsOnce(limit: 2);
 
-      if (sessions.isEmpty) return 0.0;
+      if (sessions.isEmpty) {
+        return const _DashboardAttendanceSummary(
+          lastSessionAttendanceRate: 0.0,
+          studentsWithConsecutiveAbsences: [],
+        );
+      }
 
-      final lastSession = sessions.first;
-      final records = await _firestoreService
-          .getAttendanceRecordsBySession(lastSession.id);
+      final sessionIds = sessions.map((session) => session.id).toList();
+      final records =
+          await _firestoreService.getAttendanceRecordsBySessions(sessionIds);
 
-      if (records.isEmpty) return 0.0;
+      final lastSessionId = sessions.first.id;
+      final lastSessionRecords =
+          records.where((record) => record.sessionId == lastSessionId).toList();
 
-      final attended = records.where((r) => r.attended).length;
-      return (attended / records.length) * 100;
-    } catch (e) {
-      print('Error calculating attendance rate: $e');
-      return 0.0;
-    }
-  }
+      final attendanceRate = lastSessionRecords.isEmpty
+          ? 0.0
+          : (lastSessionRecords.where((record) => record.attended).length /
+                  lastSessionRecords.length) *
+              100;
 
-  /// ספירת תלמידים עם 2 היעדרויות רצופות
-  Future<List<StudentAbsenceInfo>> _getStudentsWithThreeAbsences() async {
-    try {
-      final students = await _firestoreService.getActiveStudents().first;
+      final recordsByStudent = <String, Map<String, bool>>{};
+      for (final record in records) {
+        recordsByStudent.putIfAbsent(
+          record.studentId,
+          () => <String, bool>{},
+        )[record.sessionId] = record.attended;
+      }
+
       final results = <StudentAbsenceInfo>[];
 
       for (final student in students) {
-        final stats = await _firestoreService.getStudentAttendanceStats(
-          student.id,
-          lastNSessions: 2,
-        );
+        final studentAttendance = recordsByStudent[student.id] ?? {};
+        var consecutiveAbsences = 0;
 
-        final consecutiveAbsences = stats['consecutiveAbsences'] as int? ?? 0;
+        for (final sessionId in sessionIds) {
+          final didAttend = studentAttendance[sessionId] ?? false;
+          if (didAttend) {
+            break;
+          }
+          consecutiveAbsences++;
+        }
+
         if (consecutiveAbsences >= 2) {
           results.add(StudentAbsenceInfo(
             student: student,
@@ -140,10 +167,16 @@ class DashboardProvider with ChangeNotifier {
       results.sort(
         (a, b) => b.consecutiveAbsences.compareTo(a.consecutiveAbsences),
       );
-      return results;
+      return _DashboardAttendanceSummary(
+        lastSessionAttendanceRate: attendanceRate,
+        studentsWithConsecutiveAbsences: results,
+      );
     } catch (e) {
-      print('Error counting students with absences: $e');
-      return [];
+      print('Error calculating attendance summary: $e');
+      return const _DashboardAttendanceSummary(
+        lastSessionAttendanceRate: 0.0,
+        studentsWithConsecutiveAbsences: [],
+      );
     }
   }
 
@@ -159,7 +192,6 @@ class DashboardProvider with ChangeNotifier {
       final completed = exercises.where((e) => e.isCompleted).length;
       final progress = (completed / exercises.length) * 100;
 
-      // מציאת הרמה הנוכחית - לפי התרגיל הבא שעוד לא למדו
       final nextExercise = exercises.firstWhere(
         (e) => !e.isCompleted,
         orElse: () => exercises.last,
@@ -175,17 +207,11 @@ class DashboardProvider with ChangeNotifier {
     }
   }
 
-  /// קבלת תלמידים עם יום הולדת השבוע
-  Future<List<StudentModel>> _getBirthdayStudents() async {
-    try {
-      return await _firestoreService.getStudentsWithBirthdayInRange(
-        DateTime.now(),
-        daysRange: 3,
-      );
-    } catch (e) {
-      print('Error getting birthday students: $e');
-      return [];
-    }
+  List<StudentModel> _getBirthdayStudents(List<StudentModel> students) {
+    final now = DateTime.now();
+    return students
+        .where((student) => student.hasBirthdayInRange(now, daysRange: 3))
+        .toList();
   }
 
   /// יצירת התראות
@@ -211,4 +237,3 @@ class DashboardProvider with ChangeNotifier {
   /// רענון נתונים
   Future<void> refresh() => loadDashboardData();
 }
-

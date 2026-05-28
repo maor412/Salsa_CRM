@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -9,7 +11,6 @@ import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/shines_provider.dart';
 import 'services/notification_service.dart';
-import 'services/birthday_notification_service.dart';
 import 'services/background_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -24,7 +25,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📱 Background message received: ${message.notification?.title}');
 
   // הצגת נוטיפיקציה מקומית עם ה-channel הנכון
-  final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin notifications =
+      FlutterLocalNotificationsPlugin();
 
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'weekly_reminders',
@@ -36,7 +38,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     enableVibration: true,
   );
 
-  const NotificationDetails details = NotificationDetails(android: androidDetails);
+  const NotificationDetails details =
+      NotificationDetails(android: androidDetails);
 
   await notifications.show(
     message.hashCode,
@@ -61,8 +64,17 @@ void main() async {
   // רישום ה-background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // אתחול שירות התראות
-  await NotificationService().initialize();
+  unawaited(_initializeStartupServices());
+
+  runApp(const SalsaCRMApp());
+}
+
+Future<void> _initializeStartupServices() async {
+  try {
+    await NotificationService().initialize();
+  } catch (e) {
+    print('Notification service initialization error: $e');
+  }
 
   // ביטול אגרסיבי של כל משימות Workmanager
   // Firebase Functions מטפל בכל הנוטיפיקציות:
@@ -82,8 +94,6 @@ void main() async {
       print('⚠️ Error cancelling background tasks: $e2');
     }
   }
-
-  runApp(const SalsaCRMApp());
 }
 
 class SalsaCRMApp extends StatelessWidget {
@@ -138,5 +148,3 @@ class SalsaCRMApp extends StatelessWidget {
     );
   }
 }
-
-

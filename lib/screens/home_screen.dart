@@ -19,19 +19,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   static const double _bottomNavHeight = 72;
-  late final List<Widget> _pages;
+  final Set<int> _loadedPageIndexes = {0};
 
   @override
   void initState() {
     super.initState();
-    _pages = [
-      const DashboardScreen(),
-      const MessageBuilderScreen(),
-      const ExercisesScreen(),
-      const AttendanceScreen(),
-      if (context.read<AuthProvider>().isAdmin)
-        const TemplatesManagementScreen(),
-    ];
   }
 
   @override
@@ -40,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     print('HomeScreen build: viewInsets.bottom=${mq.viewInsets.bottom}');
     final authProvider = context.watch<AuthProvider>();
     final isAdmin = authProvider.isAdmin;
+    final pageCount = isAdmin ? 5 : 4;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -71,7 +64,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: IndexedStack(
                 index: _currentIndex,
-                children: _pages,
+                children: List.generate(
+                  pageCount,
+                  (index) => _loadedPageIndexes.contains(index)
+                      ? _buildPage(index)
+                      : const SizedBox.shrink(),
+                ),
               ),
             ),
             Align(
@@ -123,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onDestinationSelected: (index) {
         setState(() {
           _currentIndex = index;
+          _loadedPageIndexes.add(index);
         });
       },
       destinations: [
@@ -134,7 +133,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const NavigationDestination(
           icon: Icon(Icons.message_outlined),
           selectedIcon: Icon(Icons.message_rounded),
-          label: '\u05d1\u05e0\u05d9\u05d9\u05ea \u05d4\u05d5\u05d3\u05e2\u05d4',
+          label:
+              '\u05d1\u05e0\u05d9\u05d9\u05ea \u05d4\u05d5\u05d3\u05e2\u05d4',
         ),
         const NavigationDestination(
           icon: Icon(Icons.fitness_center_outlined),
@@ -154,5 +154,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
       ],
     );
+  }
+
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const DashboardScreen();
+      case 1:
+        return const MessageBuilderScreen();
+      case 2:
+        return const ExercisesScreen();
+      case 3:
+        return const AttendanceScreen();
+      case 4:
+        return const TemplatesManagementScreen();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
