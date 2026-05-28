@@ -183,6 +183,33 @@ function finalizeSalsaMessage(message, payload) {
 }
 
 /**
+ * Builds a deterministic WhatsApp message when Gemini is unavailable.
+ * @param {Object} payload Callable payload.
+ * @return {string} Ready-to-send fallback message.
+ */
+function buildFallbackSalsaMessage(payload) {
+  const category = cleanString(payload.category, "regular");
+  const categoryName =
+    cleanString(payload.categoryName) ||
+    CATEGORY_LABELS[category] ||
+    CATEGORY_LABELS.regular;
+  const today = new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+  }).format(new Date());
+
+  const message = [
+    "היי כולם 💃",
+    `היום ${today} נפגשים לשיעור ${categoryName},`,
+    "עם אנרגיות טובות והרבה תנועה.",
+    "נמשיך לעבוד על הקצב, החיבור והכיף של הסלסה.",
+    "תבואו עם מצב רוח לרקוד, נתראה על הרחבה!",
+  ].join("\n");
+
+  return finalizeSalsaMessage(message, payload);
+}
+
+/**
  * Calls Gemini and returns the raw generated message text.
  * @param {string} apiKey Gemini API key.
  * @param {string} prompt Prompt to send.
@@ -292,14 +319,13 @@ exports.generateSalsaMessage = onCall(
           model: GEMINI_MODEL,
         };
       } catch (error) {
-        if (error instanceof HttpsError) {
-          throw error;
-        }
         logger.error("Failed to generate Gemini message", error);
-        throw new HttpsError(
-            "internal",
-            "Could not generate a message.",
-        );
+        const fallbackMessage = buildFallbackSalsaMessage(payload);
+        return {
+          message: fallbackMessage,
+          model: `${GEMINI_MODEL}-fallback`,
+          fallback: true,
+        };
       }
     },
 );

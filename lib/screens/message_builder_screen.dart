@@ -32,7 +32,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
   Set<String> _selectedBirthdayStudents = {}; // תלמידים נבחרים לאזכור
   bool _isLoading = false;
   String? _whatsappGroupLink;
-  bool _birthdayBlockAdded = false;
   static const String _birthdayPlaceholder = '{{BIRTHDAY_BLOCK}}';
 
   @override
@@ -193,7 +192,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
           aiMessage,
           birthdayNames,
         );
-        _birthdayBlockAdded = birthdayNames.isNotEmpty;
       });
     } catch (e) {
       debugPrint('AI message generation failed, falling back to templates: $e');
@@ -234,17 +232,22 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
     // בחירה רנדומלית
     final random = Random();
     final template = templates[random.nextInt(templates.length)];
+    await _checkBirthdays(addPlaceholder: false);
+    final birthdayNames = _birthdayStudents
+        .where((student) => _selectedBirthdayStudents.contains(student.id))
+        .map((student) => _getFirstName(student.name))
+        .toList();
 
     setState(() {
-      _messageController.text = template.content;
+      _messageController.text = _ensureBirthdayMention(
+        template.content,
+        birthdayNames,
+      );
     });
-
-    // בדוק ימי הולדת אחרי שטעינת התבנית
-    await _checkBirthdays();
   }
 
   /// בדיקת ימי הולדת
-  Future<void> _checkBirthdays({bool addPlaceholder = true}) async {
+  Future<void> _checkBirthdays({bool addPlaceholder = false}) async {
     try {
       final students = await _firestoreService.getUpcomingBirthdayStudents();
       print(
@@ -255,17 +258,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
         _selectedBirthdayStudents = students.map((s) => s.id).toSet();
       });
 
-      // רק הוסף placeholder אם כבר יש תוכן בהודעה (לא בהתחלה)
-      if (addPlaceholder &&
-          students.isNotEmpty &&
-          _messageController.text.trim().isNotEmpty &&
-          !_messageController.text.contains(_birthdayPlaceholder) &&
-          !_birthdayBlockAdded) {
-        setState(() {
-          _messageController.text =
-              '${_messageController.text}\n\n$_birthdayPlaceholder';
-        });
-      } else if (students.isEmpty) {
+      if (students.isEmpty || !addPlaceholder) {
         _removeBirthdayPlaceholder();
       }
     } catch (e) {
@@ -314,7 +307,6 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
         _birthdayPlaceholder,
         '',
       );
-      _birthdayBlockAdded = false;
     });
   }
 
@@ -403,80 +395,88 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // Scrollable content area
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.lg,
-                keyboardHeight + 100,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Step 1: בחירת סוג שיעור
-                  _buildStepHeader('1', 'בחר סוג שיעור'),
-                  const SizedBox(height: AppSpacing.md),
-                  _LessonTypeChips(
-                    selectedCategory: _selectedCategory,
-                    onCategoryChanged: (category) {
-                      setState(() => _selectedCategory = category);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // Step 2: צור/ערוך הודעה
-                  _buildStepHeader('2', 'צור/ערוך הודעה'),
-                  const SizedBox(height: AppSpacing.md),
-                  _MessageEditorCard(
-                    messageController: _messageController,
-                    isLoading: _isLoading,
-                    currentEvent: _currentEvent,
-                    onGenerateMessage: _handleLockEvent,
-                    onCopyMessage: _copyToClipboard,
-                    onClearMessage: () {
-                      setState(() => _messageController.clear());
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Step 3: שיתוף/שליחה
-                  _buildStepHeader('3', 'שיתוף/שליחה'),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Info text
-                  if (_whatsappGroupLink == null || _whatsappGroupLink!.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      child: Text(
-                        'לא הוגדר קישור קבוצה. הגדר במסך הניהול.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          children: [
+            // Scrollable content area
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  keyboardHeight + 100,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Step 1: בחירת סוג שיעור
+                    _buildStepHeader('1', 'בחר סוג שיעור'),
+                    const SizedBox(height: AppSpacing.md),
+                    _LessonTypeChips(
+                      selectedCategory: _selectedCategory,
+                      onCategoryChanged: (category) {
+                        setState(() => _selectedCategory = category);
+                      },
                     ),
+                    const SizedBox(height: AppSpacing.xl),
 
-                  // Add bottom padding so content isn't hidden by sticky bar
-                  const SizedBox(height: 100),
-                ],
+                    // Step 2: צור/ערוך הודעה
+                    _buildStepHeader('2', 'צור/ערוך הודעה'),
+                    const SizedBox(height: AppSpacing.md),
+                    _MessageEditorCard(
+                      messageController: _messageController,
+                      isLoading: _isLoading,
+                      currentEvent: _currentEvent,
+                      onGenerateMessage: _handleLockEvent,
+                      onCopyMessage: _copyToClipboard,
+                      onClearMessage: () {
+                        setState(() => _messageController.clear());
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Step 3: שיתוף/שליחה
+                    _buildStepHeader('3', 'שיתוף/שליחה'),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Info text
+                    if (_whatsappGroupLink == null ||
+                        _whatsappGroupLink!.isEmpty)
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        child: Text(
+                          'לא הוגדר קישור קבוצה. הגדר במסך הניהול.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                    // Add bottom padding so content isn't hidden by sticky bar
+                    const SizedBox(height: 100),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Sticky bottom action bar
-          _StickyActionBar(
-            hasMessage: _messageController.text.isNotEmpty,
-            hasGroupLink:
-                _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
-            onSendToGroup: _sendToGroup,
-          ),
-        ],
+            // Sticky bottom action bar
+            _StickyActionBar(
+              hasMessage: _messageController.text.isNotEmpty,
+              hasGroupLink:
+                  _whatsappGroupLink != null && _whatsappGroupLink!.isNotEmpty,
+              onSendToGroup: _sendToGroup,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -671,6 +671,7 @@ class _MessageEditorCard extends StatelessWidget {
                   TextField(
                     controller: messageController,
                     textDirection: TextDirection.rtl,
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
                     maxLines: null,
                     expands: true,
                     textAlignVertical: TextAlignVertical.top,
