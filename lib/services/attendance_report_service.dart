@@ -262,20 +262,27 @@ class AttendanceReportService {
 
             return pw.Container(
               height: rowHeight,
-              padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+              padding: isLastColumn
+                  ? const pw.EdgeInsets.only(right: 18, left: 4)
+                  : const pw.EdgeInsets.symmetric(horizontal: 4),
               alignment:
                   isLastColumn ? pw.Alignment.centerRight : pw.Alignment.center,
               child: pw.FittedBox(
                 fit: pw.BoxFit.scaleDown,
-                child: pw.Text(
-                  header,
-                  style: pw.TextStyle(
-                    color: PdfColors.white,
-                    fontSize: _tableHeaderFontSize,
-                    font: fontBold,
-                    fontWeight: pw.FontWeight.bold,
+                child: pw.Padding(
+                  padding: isLastColumn
+                      ? const pw.EdgeInsets.only(right: 4)
+                      : pw.EdgeInsets.zero,
+                  child: pw.Text(
+                    header,
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: _tableHeaderFontSize,
+                      font: fontBold,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textDirection: pw.TextDirection.rtl,
                   ),
-                  textDirection: pw.TextDirection.rtl,
                 ),
               ),
             );
@@ -309,23 +316,30 @@ class AttendanceReportService {
 
               return pw.Container(
                 height: rowHeight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 3),
+                padding: isLastColumn
+                    ? const pw.EdgeInsets.only(right: 18, left: 3)
+                    : const pw.EdgeInsets.symmetric(horizontal: 3),
                 alignment: isLastColumn
                     ? pw.Alignment.centerRight
                     : pw.Alignment.center,
                 child: pw.FittedBox(
                   fit: pw.BoxFit.scaleDown,
-                  child: pw.Text(
-                    cell,
-                    style: pw.TextStyle(
-                      fontSize: _tableCellFontSize,
-                      font: isLastColumn ? fontBold : font,
-                      fontWeight: isLastColumn
-                          ? pw.FontWeight.bold
-                          : pw.FontWeight.normal,
-                      color: textColor ?? PdfColors.black,
+                  child: pw.Padding(
+                    padding: isLastColumn
+                        ? const pw.EdgeInsets.only(right: 4)
+                        : pw.EdgeInsets.zero,
+                    child: pw.Text(
+                      cell,
+                      style: pw.TextStyle(
+                        fontSize: _tableCellFontSize,
+                        font: isLastColumn ? fontBold : font,
+                        fontWeight: isLastColumn
+                            ? pw.FontWeight.bold
+                            : pw.FontWeight.normal,
+                        color: textColor ?? PdfColors.black,
+                      ),
+                      textDirection: isLastColumn ? pw.TextDirection.rtl : null,
                     ),
-                    textDirection: isLastColumn ? pw.TextDirection.rtl : null,
                   ),
                 ),
               );
