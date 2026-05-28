@@ -6,19 +6,6 @@ import '../services/firestore_service.dart';
 import '../providers/auth_provider.dart';
 import '../config/app_theme.dart';
 
-/// המרת מספר טלפון לפורמט ישראלי (0xx במקום +972)
-String _formatPhoneNumber(String phone) {
-  if (phone.isEmpty) return '';
-
-  // אם המספר מתחיל ב-+972, נחליף ל-0
-  if (phone.startsWith('+972')) {
-    return '0${phone.substring(4)}';
-  }
-
-  // אחרת נחזיר את המספר כמו שהוא
-  return phone;
-}
-
 /// מסך רישום נוכחות
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -378,7 +365,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
 
                       // Lesson type chips
                       Padding(
@@ -387,15 +374,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'סוג שיעור',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
                             _LessonTypeChips(
                               selectedLessonType: _selectedLessonType,
                               onLessonTypeChanged: (type) {
@@ -406,7 +384,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: AppSpacing.md),
+
+                      ValueListenableBuilder<Map<String, bool>>(
+                        valueListenable: _attendanceNotifier,
+                        builder: (context, attendance, _) {
+                          return _AttendanceSummaryBar(
+                            selectedCount: attendance.length,
+                            totalCount: allStudents.length,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: AppSpacing.md),
 
                       // Search bar
                       Padding(
@@ -498,6 +488,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   return _StickySaveBar(
                     isSaving: _isSaving,
                     hasSelection: attendance.isNotEmpty,
+                    selectedCount: attendance.length,
+                    totalCount: allStudents.length,
                     onSave: () => _saveAttendance(allStudents),
                   );
                 },
@@ -524,54 +516,124 @@ class _LessonTypeChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border, width: 1),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.largeRadius,
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
+        boxShadow: AppShadows.small,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: LessonType.values.map((type) {
-              final isSelected = type == selectedLessonType;
-              final session = AttendanceSession(
-                id: '',
-                date: DateTime.now(),
-                lessonType: type,
-                instructorId: '',
-                instructorName: '',
-                createdAt: DateTime.now(),
-              );
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: LessonType.values.map((type) {
+            final isSelected = type == selectedLessonType;
+            final session = AttendanceSession(
+              id: '',
+              date: DateTime.now(),
+              lessonType: type,
+              instructorId: '',
+              instructorName: '',
+              createdAt: DateTime.now(),
+            );
 
-              return Padding(
-                padding: const EdgeInsets.only(left: AppSpacing.sm),
-                child: ChoiceChip(
-                  label: Text(session.lessonTypeName),
-                  selected: isSelected,
-                  onSelected: (_) => onLessonTypeChanged(type),
-                  selectedColor: AppColors.primaryLight,
-                  backgroundColor: AppColors.surfaceVariant,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
+            return Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.xs),
+              child: ChoiceChip(
+                label: Text(session.lessonTypeName),
+                selected: isSelected,
+                onSelected: (_) => onLessonTypeChanged(type),
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.surfaceVariant,
+                showCheckmark: true,
+                checkmarkColor: Colors.white,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
                 ),
-              );
-            }).toList(),
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary : AppColors.border,
+                  width: 1,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceSummaryBar extends StatelessWidget {
+  final int selectedCount;
+  final int totalCount;
+
+  const _AttendanceSummaryBar({
+    required this.selectedCount,
+    required this.totalCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSelection = selectedCount > 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        decoration: BoxDecoration(
+          color: hasSelection ? AppColors.accent : AppColors.surface,
+          borderRadius: AppRadius.largeRadius,
+          border: Border.all(
+            color: hasSelection
+                ? AppColors.primary.withValues(alpha: 0.18)
+                : AppColors.border.withValues(alpha: 0.7),
           ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: hasSelection
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : AppColors.surfaceVariant,
+                borderRadius: AppRadius.smallRadius,
+              ),
+              child: Icon(
+                hasSelection
+                    ? Icons.check_circle_rounded
+                    : Icons.people_outline_rounded,
+                color: hasSelection ? AppColors.primary : AppColors.textHint,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                hasSelection
+                    ? 'סומנו $selectedCount מתוך $totalCount תלמידים'
+                    : 'עדיין לא סומנה נוכחות',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: hasSelection
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -592,45 +654,42 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border, width: 1),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.largeRadius,
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: ValueListenableBuilder<String>(
-          valueListenable: searchQuery,
-          builder: (context, searchValue, _) {
-            return TextField(
-              controller: controller,
-              textDirection: TextDirection.rtl,
-              decoration: InputDecoration(
-                hintText: 'חפש תלמיד...',
-                hintStyle: const TextStyle(color: AppColors.textHint),
-                prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-                suffixIcon: searchValue.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () {
-                          controller.clear();
-                          searchQuery.value = '';
-                        },
-                        color: AppColors.textSecondary,
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              ),
-              onChanged: (value) {
-                searchQuery.value = value;
-              },
-            );
-          },
-        ),
+      child: ValueListenableBuilder<String>(
+        valueListenable: searchQuery,
+        builder: (context, searchValue, _) {
+          return TextField(
+            controller: controller,
+            textDirection: TextDirection.rtl,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'חפש תלמיד...',
+              hintStyle: const TextStyle(color: AppColors.textHint),
+              prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+              suffixIcon: searchValue.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () {
+                        controller.clear();
+                        searchQuery.value = '';
+                      },
+                      color: AppColors.textSecondary,
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            ),
+            onChanged: (value) {
+              searchQuery.value = value;
+            },
+          );
+        },
       ),
     );
   }
@@ -654,59 +713,95 @@ class _StudentAttendanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      color: isPresent ? AppColors.accent : AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isPresent ? AppColors.primary : AppColors.border,
-          width: isPresent ? 2 : 1,
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
-        leading: CircleAvatar(
-          backgroundColor:
-              isPresent ? AppColors.primary : AppColors.surfaceVariant,
-          child: Text(
-            student.name.isNotEmpty ? student.name[0].toUpperCase() : '?',
-            style: TextStyle(
-              color: isPresent ? Colors.white : AppColors.textSecondary,
-              fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onToggle,
+          onLongPress: onLongPress,
+          borderRadius: AppRadius.largeRadius,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: isPresent ? AppColors.accent : AppColors.surface,
+              borderRadius: AppRadius.largeRadius,
+              border: Border.all(
+                color: isPresent
+                    ? AppColors.primary.withValues(alpha: 0.55)
+                    : AppColors.border.withValues(alpha: 0.75),
+                width: isPresent ? 1.6 : 1,
+              ),
+              boxShadow: AppShadows.small,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: isPresent
+                        ? AppColors.primary
+                        : AppColors.surfaceVariant,
+                    borderRadius: AppRadius.roundRadius,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    student.name.isNotEmpty
+                        ? student.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      color: isPresent ? Colors.white : AppColors.textSecondary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    student.name,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1.2,
+                      fontWeight: isPresent ? FontWeight.w800 : FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isPresent ? AppColors.primary : AppColors.surface,
+                    borderRadius: AppRadius.roundRadius,
+                    border: Border.all(
+                      color: isPresent
+                          ? AppColors.primary
+                          : AppColors.textSecondary.withValues(alpha: 0.45),
+                      width: 2,
+                    ),
+                  ),
+                  child: isPresent
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        )
+                      : null,
+                ),
+              ],
             ),
           ),
         ),
-        title: Text(
-          student.name,
-          style: TextStyle(
-            fontWeight: isPresent ? FontWeight.bold : FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        subtitle: student.phoneNumber.isNotEmpty
-            ? Text(
-                _formatPhoneNumber(student.phoneNumber),
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              )
-            : null,
-        trailing: Checkbox(
-          value: isPresent,
-          onChanged: (_) => onToggle(),
-          activeColor: AppColors.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        onTap: onToggle,
-        onLongPress: onLongPress,
       ),
     );
   }
@@ -718,11 +813,15 @@ class _StudentAttendanceTile extends StatelessWidget {
 class _StickySaveBar extends StatelessWidget {
   final bool isSaving;
   final bool hasSelection;
+  final int selectedCount;
+  final int totalCount;
   final VoidCallback onSave;
 
   const _StickySaveBar({
     required this.isSaving,
     required this.hasSelection,
+    required this.selectedCount,
+    required this.totalCount,
     required this.onSave,
   });
 
@@ -748,33 +847,51 @@ class _StickySaveBar extends StatelessWidget {
         ),
         child: SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: (isSaving || !hasSelection) ? null : onSave,
-            icon: isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save, size: 20),
-            label: Text(
-              isSaving ? 'שומר...' : 'סיום ושמירה',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasSelection) ...[
+                Text(
+                  'סומנו $selectedCount מתוך $totalCount',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+              ],
+              ElevatedButton.icon(
+                onPressed: (isSaving || !hasSelection) ? null : onSave,
+                icon: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save, size: 20),
+                label: Text(
+                  isSaving ? 'שומר...' : 'סיום ושמירה',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  elevation: hasSelection ? 2 : 0,
+                  disabledBackgroundColor:
+                      AppColors.surfaceVariant.withValues(alpha: 0.9),
+                  disabledForegroundColor: AppColors.textHint,
+                ),
               ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              elevation: 2,
-              disabledBackgroundColor: AppColors.surfaceVariant,
-              disabledForegroundColor: AppColors.textHint,
-            ),
+            ],
           ),
         ),
       ),
