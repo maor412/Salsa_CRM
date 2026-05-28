@@ -32,7 +32,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ValueNotifier<String> _searchQuery = ValueNotifier<String>('');
   final ScrollController _scrollController = ScrollController();
-  final ValueNotifier<Map<String, bool>> _attendanceNotifier = ValueNotifier({});
+  final ValueNotifier<Map<String, bool>> _attendanceNotifier =
+      ValueNotifier({});
 
   LessonType _selectedLessonType = LessonType.regular;
   Map<String, bool> get _attendance => _attendanceNotifier.value;
@@ -300,7 +301,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         createdAt: DateTime.now(),
       );
 
-      final sessionId = await _firestoreService.createAttendanceSession(session);
+      final sessionId =
+          await _firestoreService.createAttendanceSession(session);
 
       // יצירת רשומות נוכחות
       final records = students.map((student) {
@@ -371,7 +373,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   key: const PageStorageKey<String>('attendanceScrollView'),
                   controller: _scrollController,
                   padding: const EdgeInsets.only(
-                    bottom: 180,
+                    bottom: AppSpacing.md,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +382,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                       // Lesson type chips
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -407,7 +410,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                       // Search bar
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg),
                         child: _SearchBar(
                           controller: _searchController,
                           searchQuery: _searchQuery,
@@ -442,30 +446,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               : ListView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
-                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.lg),
                                   itemCount: filteredStudents.length,
                                   itemBuilder: (context, index) {
                                     final student = filteredStudents[index];
 
-                                    return ValueListenableBuilder<Map<String, bool>>(
+                                    return ValueListenableBuilder<
+                                        Map<String, bool>>(
                                       valueListenable: _attendanceNotifier,
                                       builder: (context, attendance, _) {
-                                        final isPresent = attendance[student.id] ?? false;
+                                        final isPresent =
+                                            attendance[student.id] ?? false;
 
                                         return _StudentAttendanceTile(
                                           student: student,
                                           isPresent: isPresent,
                                           onToggle: () {
-                                            final newAttendance = Map<String, bool>.from(_attendanceNotifier.value);
-                                            final current = newAttendance[student.id] ?? false;
+                                            final newAttendance =
+                                                Map<String, bool>.from(
+                                                    _attendanceNotifier.value);
+                                            final current =
+                                                newAttendance[student.id] ??
+                                                    false;
                                             if (current) {
                                               newAttendance.remove(student.id);
                                             } else {
                                               newAttendance[student.id] = true;
                                             }
-                                            _attendanceNotifier.value = newAttendance;
+                                            _attendanceNotifier.value =
+                                                newAttendance;
                                           },
-                                          onLongPress: () => _showStudentOptions(student),
+                                          onLongPress: () =>
+                                              _showStudentOptions(student),
                                         );
                                       },
                                     );
@@ -544,7 +557,8 @@ class _LessonTypeChips extends StatelessWidget {
                   backgroundColor: AppColors.surfaceVariant,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                   side: BorderSide(
                     color: isSelected ? AppColors.primary : AppColors.border,
@@ -608,7 +622,8 @@ class _SearchBar extends StatelessWidget {
                       )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: AppSpacing.md),
               ),
               onChanged: (value) {
                 searchQuery.value = value;
@@ -656,7 +671,8 @@ class _StudentAttendanceTile extends StatelessWidget {
           vertical: AppSpacing.sm,
         ),
         leading: CircleAvatar(
-          backgroundColor: isPresent ? AppColors.primary : AppColors.surfaceVariant,
+          backgroundColor:
+              isPresent ? AppColors.primary : AppColors.surfaceVariant,
           child: Text(
             student.name.isNotEmpty ? student.name[0].toUpperCase() : '?',
             style: TextStyle(
@@ -731,35 +747,35 @@ class _StickySaveBar extends StatelessWidget {
           bottom: AppSpacing.sm + MediaQuery.of(context).padding.bottom,
         ),
         child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: (isSaving || !hasSelection) ? null : onSave,
-                  icon: isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save, size: 20),
-                  label: Text(
-                    isSaving ? 'שומר...' : 'סיום ושמירה',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: (isSaving || !hasSelection) ? null : onSave,
+            icon: isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    elevation: 2,
-                    disabledBackgroundColor: AppColors.surfaceVariant,
-                    disabledForegroundColor: AppColors.textHint,
-                  ),
-                ),
+                  )
+                : const Icon(Icons.save, size: 20),
+            label: Text(
+              isSaving ? 'שומר...' : 'סיום ושמירה',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              elevation: 2,
+              disabledBackgroundColor: AppColors.surfaceVariant,
+              disabledForegroundColor: AppColors.textHint,
+            ),
+          ),
         ),
       ),
     );

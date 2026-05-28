@@ -332,8 +332,7 @@ class _ExercisesScreenState extends State<ExercisesScreen>
                 AppSpacing.lg,
                 AppSpacing.lg,
                 AppSpacing.lg,
-                AppSpacing.xxxl +
-                    AppSpacing.xl, // padding תחתון גדול למניעת דחיסה
+                AppSpacing.xxl,
               ),
               children: [
                 // בלוק התקדמות כללית

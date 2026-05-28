@@ -409,7 +409,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                   AppSpacing.lg,
                   AppSpacing.lg,
                   AppSpacing.lg,
-                  keyboardHeight + 100,
+                  keyboardHeight + AppSpacing.md,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,8 +461,7 @@ class _MessageBuilderScreenState extends State<MessageBuilderScreen> {
                         ),
                       ),
 
-                    // Add bottom padding so content isn't hidden by sticky bar
-                    const SizedBox(height: 100),
+                    const SizedBox(height: AppSpacing.md),
                   ],
                 ),
               ),
