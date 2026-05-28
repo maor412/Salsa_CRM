@@ -16,7 +16,8 @@ class ExercisesScreen extends StatefulWidget {
   State<ExercisesScreen> createState() => _ExercisesScreenState();
 }
 
-class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProviderStateMixin {
+class _ExercisesScreenState extends State<ExercisesScreen>
+    with SingleTickerProviderStateMixin {
   final FirestoreService _firestoreService = FirestoreService();
   final ScrollController _scrollController = ScrollController();
 
@@ -112,10 +113,143 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
   }
 
   Future<void> _toggleExercise(ExerciseModel exercise) async {
+    if (exercise.isCompleted) {
+      final confirmed = await _confirmExerciseUnlearn(exercise);
+      if (!confirmed) return;
+    }
+
     await _firestoreService.updateExerciseStatus(
       exercise.id,
       !exercise.isCompleted,
     );
+  }
+
+  Future<bool> _confirmExerciseUnlearn(ExerciseModel exercise) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          title: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.undo_rounded,
+                  color: AppColors.error,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'ביטול למידת תרגיל',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'הפעולה תסיר את הסימון מהתרגיל ועלולה לשנות את רשימת החזרה.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  height: 1.45,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Text(
+                  exercise.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md,
+                      ),
+                    ),
+                    child: const Text(
+                      'השאר מסומן',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md,
+                      ),
+                    ),
+                    child: const Text(
+                      'בטל למידה',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return result ?? false;
   }
 
   // ============================================================
@@ -164,59 +298,62 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
       body: StreamBuilder<List<ExerciseModel>>(
         stream: _firestoreService.getExercises(),
         builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AppLoadingState(message: 'טוען תרגילים...');
-        }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AppLoadingState(message: 'טוען תרגילים...');
+          }
 
-        if (snapshot.hasError) {
-          return AppErrorState(
-            message: 'שגיאה בטעינת תרגילים: ${snapshot.error}',
-            onRetry: () => setState(() {}),
-          );
-        }
+          if (snapshot.hasError) {
+            return AppErrorState(
+              message: 'שגיאה בטעינת תרגילים: ${snapshot.error}',
+              onRetry: () => setState(() {}),
+            );
+          }
 
-        final exercises = snapshot.data ?? [];
+          final exercises = snapshot.data ?? [];
 
-        if (exercises.isEmpty) {
-          return const AppEmptyState(
-            icon: Icons.fitness_center_rounded,
-            title: 'אין תרגילים זמינים',
-            subtitle: 'התרגילים יתווספו אוטומטית',
-          );
-        }
+          if (exercises.isEmpty) {
+            return const AppEmptyState(
+              icon: Icons.fitness_center_rounded,
+              title: 'אין תרגילים זמינים',
+              subtitle: 'התרגילים יתווספו אוטומטית',
+            );
+          }
 
-        final nextIncompleteIndex = exercises.indexWhere((e) => !e.isCompleted);
-        const nextExercisesCount = 3;
+          final nextIncompleteIndex =
+              exercises.indexWhere((e) => !e.isCompleted);
+          const nextExercisesCount = 3;
 
-        return NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: ListView(
-            key: const PageStorageKey<String>('exercises_list'),
-            controller: _scrollController,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.xxxl + AppSpacing.xl, // padding תחתון גדול למניעת דחיסה
+          return NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: ListView(
+              key: const PageStorageKey<String>('exercises_list'),
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.xxxl +
+                    AppSpacing.xl, // padding תחתון גדול למניעת דחיסה
+              ),
+              children: [
+                // בלוק התקדמות כללית
+                _buildProgressCard(exercises),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // כרטיס התרגילים לשיעור הבא
+                _buildNextLessonCard(
+                    exercises, nextIncompleteIndex, nextExercisesCount),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // רשימה מלאה של תרגילים
+                _buildAllExercisesCard(exercises),
+              ],
             ),
-            children: [
-              // בלוק התקדמות כללית
-              _buildProgressCard(exercises),
-
-              const SizedBox(height: AppSpacing.lg),
-
-              // כרטיס התרגילים לשיעור הבא
-              _buildNextLessonCard(exercises, nextIncompleteIndex, nextExercisesCount),
-
-              const SizedBox(height: AppSpacing.lg),
-
-              // רשימה מלאה של תרגילים
-              _buildAllExercisesCard(exercises),
-            ],
-          ),
-        );
-      },
-    ),
+          );
+        },
+      ),
       floatingActionButton: ScaleTransition(
         scale: _fabScaleAnimation,
         child: FadeTransition(
@@ -311,7 +448,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
                     value: percentage,
                     minHeight: 10,
                     backgroundColor: AppColors.accent,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 ),
               ),
@@ -336,9 +474,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
     int nextIndex,
     int count,
   ) {
-    final allCompletedExercises = exercises
-        .where((e) => e.isCompleted && e.completedAt != null)
-        .toList();
+    final allCompletedExercises =
+        exercises.where((e) => e.isCompleted && e.completedAt != null).toList();
 
     List<ExerciseModel> completedExercises = [];
 
@@ -350,17 +487,15 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
       completedExercises = allCompletedExercises.where((e) {
         final exerciseDate = e.completedAt!;
         return exerciseDate.year == latestDate.year &&
-               exerciseDate.month == latestDate.month &&
-               exerciseDate.day == latestDate.day;
+            exerciseDate.month == latestDate.month &&
+            exerciseDate.day == latestDate.day;
       }).toList();
 
       completedExercises.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     }
 
-    final upcomingExercises = exercises
-        .where((e) => !e.isCompleted)
-        .take(count)
-        .toList();
+    final upcomingExercises =
+        exercises.where((e) => !e.isCompleted).take(count).toList();
 
     return AppCard(
       color: AppColors.accent, // שינוי מתכלת לסגול בהיר
@@ -414,7 +549,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
             ),
             const SizedBox(height: AppSpacing.sm),
             ...completedExercises.map((exercise) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs, right: AppSpacing.md),
+                  padding: const EdgeInsets.only(
+                      bottom: AppSpacing.xs, right: AppSpacing.md),
                   child: Row(
                     children: [
                       Container(
@@ -457,7 +593,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
           ),
           const SizedBox(height: AppSpacing.sm),
           ...upcomingExercises.map((exercise) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xs, right: AppSpacing.md),
+                padding: const EdgeInsets.only(
+                    bottom: AppSpacing.xs, right: AppSpacing.md),
                 child: Row(
                   children: [
                     Container(
@@ -551,7 +688,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildLevelSection(String level, List<ExerciseModel> levelExercises, List<ExerciseModel> allExercises) {
+  Widget _buildLevelSection(String level, List<ExerciseModel> levelExercises,
+      List<ExerciseModel> allExercises) {
     final completed = levelExercises.where((e) => e.isCompleted).length;
     final total = levelExercises.length;
 
@@ -576,7 +714,9 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
                   color: isExpanded ? AppColors.accent : AppColors.surface,
                   borderRadius: AppRadius.mediumRadius,
                   border: Border.all(
-                    color: isExpanded ? AppColors.primary.withOpacity(0.3) : AppColors.border,
+                    color: isExpanded
+                        ? AppColors.primary.withOpacity(0.3)
+                        : AppColors.border,
                     width: 1,
                   ),
                 ),
@@ -622,14 +762,17 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
                                 '$completed מתוך $total הושלמו',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.textSecondary.withOpacity(0.8),
+                                  color:
+                                      AppColors.textSecondary.withOpacity(0.8),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         Icon(
-                          isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                          isExpanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
                           color: AppColors.primary,
                           size: 28,
                         ),
@@ -756,7 +899,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> with SingleTickerProv
                 ),
 
                 // כפתור יוטיוב אם יש קישור
-                if (exercise.videoUrl != null && exercise.videoUrl!.isNotEmpty) ...[
+                if (exercise.videoUrl != null &&
+                    exercise.videoUrl!.isNotEmpty) ...[
                   const SizedBox(width: AppSpacing.md),
                   IconButton(
                     onPressed: () => _openVideo(exercise.videoUrl!),
