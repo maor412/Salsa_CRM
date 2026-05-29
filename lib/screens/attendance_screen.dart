@@ -352,149 +352,148 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
           final allStudents = snapshot.data ?? [];
 
-          return Column(
-            children: [
-              // Scrollable content area
-              Expanded(
-                child: SingleChildScrollView(
-                  key: const PageStorageKey<String>('attendanceScrollView'),
-                  controller: _scrollController,
-                  padding: const EdgeInsets.only(
-                    bottom: AppSpacing.md,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: AppSpacing.md),
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Column(
+              children: [
+                // Scrollable content area
+                Expanded(
+                  child: SingleChildScrollView(
+                    key: const PageStorageKey<String>('attendanceScrollView'),
+                    controller: _scrollController,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(
+                      bottom: AppSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: AppSpacing.md),
 
-                      // Lesson type chips
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _LessonTypeChips(
-                              selectedLessonType: _selectedLessonType,
-                              onLessonTypeChanged: (type) {
-                                setState(() => _selectedLessonType = type);
-                              },
-                            ),
-                          ],
+                        // Lesson type chips
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _LessonTypeChips(
+                                selectedLessonType: _selectedLessonType,
+                                onLessonTypeChanged: (type) {
+                                  setState(() => _selectedLessonType = type);
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.md),
 
-                      ValueListenableBuilder<Map<String, bool>>(
-                        valueListenable: _attendanceNotifier,
-                        builder: (context, attendance, _) {
-                          return _AttendanceSummaryBar(
-                            selectedCount: attendance.length,
-                            totalCount: allStudents.length,
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Search bar
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg),
-                        child: _SearchBar(
-                          controller: _searchController,
-                          searchQuery: _searchQuery,
+                        // Search bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg),
+                          child: _SearchBar(
+                            controller: _searchController,
+                            searchQuery: _searchQuery,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.md),
 
-                      // Students list
-                      ValueListenableBuilder<String>(
-                        valueListenable: _searchQuery,
-                        builder: (context, searchValue, _) {
-                          // סינון לפי חיפוש
-                          final filteredStudents = allStudents.where((student) {
-                            if (searchValue.isEmpty) return true;
-                            return student.name.contains(searchValue);
-                          }).toList();
+                        // Students list
+                        ValueListenableBuilder<String>(
+                          valueListenable: _searchQuery,
+                          builder: (context, searchValue, _) {
+                            // סינון לפי חיפוש
+                            final filteredStudents =
+                                allStudents.where((student) {
+                              if (searchValue.isEmpty) return true;
+                              return student.name.contains(searchValue);
+                            }).toList();
 
-                          return filteredStudents.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.all(AppSpacing.xl),
-                                  child: Center(
-                                    child: Text(
-                                      'לא נמצאו תלמידים',
-                                      style: TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 16,
+                            return filteredStudents.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.all(AppSpacing.xl),
+                                    child: Center(
+                                      child: Text(
+                                        'לא נמצאו תלמידים',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 16,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.lg),
-                                  itemCount: filteredStudents.length,
-                                  itemBuilder: (context, index) {
-                                    final student = filteredStudents[index];
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.lg),
+                                    itemCount: filteredStudents.length,
+                                    itemBuilder: (context, index) {
+                                      final student = filteredStudents[index];
 
-                                    return ValueListenableBuilder<
-                                        Map<String, bool>>(
-                                      valueListenable: _attendanceNotifier,
-                                      builder: (context, attendance, _) {
-                                        final isPresent =
-                                            attendance[student.id] ?? false;
+                                      return ValueListenableBuilder<
+                                          Map<String, bool>>(
+                                        valueListenable: _attendanceNotifier,
+                                        builder: (context, attendance, _) {
+                                          final isPresent =
+                                              attendance[student.id] ?? false;
 
-                                        return _StudentAttendanceTile(
-                                          student: student,
-                                          isPresent: isPresent,
-                                          onToggle: () {
-                                            final newAttendance =
-                                                Map<String, bool>.from(
-                                                    _attendanceNotifier.value);
-                                            final current =
-                                                newAttendance[student.id] ??
-                                                    false;
-                                            if (current) {
-                                              newAttendance.remove(student.id);
-                                            } else {
-                                              newAttendance[student.id] = true;
-                                            }
-                                            _attendanceNotifier.value =
-                                                newAttendance;
-                                          },
-                                          onLongPress: () =>
-                                              _showStudentOptions(student),
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
-                        },
-                      ),
-                    ],
+                                          return _StudentAttendanceTile(
+                                            student: student,
+                                            isPresent: isPresent,
+                                            onToggle: () {
+                                              final newAttendance =
+                                                  Map<String, bool>.from(
+                                                      _attendanceNotifier
+                                                          .value);
+                                              final current =
+                                                  newAttendance[student.id] ??
+                                                      false;
+                                              if (current) {
+                                                newAttendance
+                                                    .remove(student.id);
+                                              } else {
+                                                newAttendance[student.id] =
+                                                    true;
+                                              }
+                                              _attendanceNotifier.value =
+                                                  newAttendance;
+                                            },
+                                            onLongPress: () =>
+                                                _showStudentOptions(student),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              // Sticky bottom bar with KPIs and save button
-              ValueListenableBuilder<Map<String, bool>>(
-                valueListenable: _attendanceNotifier,
-                builder: (context, attendance, _) {
-                  return _StickySaveBar(
-                    isSaving: _isSaving,
-                    hasSelection: attendance.isNotEmpty,
-                    selectedCount: attendance.length,
-                    totalCount: allStudents.length,
-                    onSave: () => _saveAttendance(allStudents),
-                  );
-                },
-              ),
-            ],
+                // Sticky bottom bar with KPIs and save button
+                ValueListenableBuilder<Map<String, bool>>(
+                  valueListenable: _attendanceNotifier,
+                  builder: (context, attendance, _) {
+                    return _StickySaveBar(
+                      isSaving: _isSaving,
+                      hasSelection: attendance.isNotEmpty,
+                      selectedCount: attendance.length,
+                      totalCount: allStudents.length,
+                      onSave: () => _saveAttendance(allStudents),
+                    );
+                  },
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -570,76 +569,6 @@ class _LessonTypeChips extends StatelessWidget {
   }
 }
 
-class _AttendanceSummaryBar extends StatelessWidget {
-  final int selectedCount;
-  final int totalCount;
-
-  const _AttendanceSummaryBar({
-    required this.selectedCount,
-    required this.totalCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasSelection = selectedCount > 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: hasSelection ? AppColors.accent : AppColors.surface,
-          borderRadius: AppRadius.largeRadius,
-          border: Border.all(
-            color: hasSelection
-                ? AppColors.primary.withValues(alpha: 0.18)
-                : AppColors.border.withValues(alpha: 0.7),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: hasSelection
-                    ? AppColors.primary.withValues(alpha: 0.12)
-                    : AppColors.surfaceVariant,
-                borderRadius: AppRadius.smallRadius,
-              ),
-              child: Icon(
-                hasSelection
-                    ? Icons.check_circle_rounded
-                    : Icons.people_outline_rounded,
-                color: hasSelection ? AppColors.primary : AppColors.textHint,
-                size: 21,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                hasSelection
-                    ? 'סומנו $selectedCount מתוך $totalCount תלמידים'
-                    : 'עדיין לא סומנה נוכחות',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: hasSelection
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ============================================================================
 // COMPONENT: Search Bar
 // ============================================================================
@@ -667,6 +596,7 @@ class _SearchBar extends StatelessWidget {
             controller: controller,
             textDirection: TextDirection.rtl,
             textInputAction: TextInputAction.search,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
             decoration: InputDecoration(
               hintText: 'חפש תלמיד...',
               hintStyle: const TextStyle(color: AppColors.textHint),

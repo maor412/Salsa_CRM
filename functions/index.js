@@ -60,7 +60,6 @@ function buildSalsaPrompt(data, retryReason = "") {
     cleanString(data.categoryName) ||
     CATEGORY_LABELS[category] ||
     CATEGORY_LABELS.regular;
-  const senderName = cleanString(data.senderName, "הצוות");
   const tone = cleanString(data.tone, "קליל, אנרגטי, חברי");
   const maxLength = Number.isInteger(data.maxLength) ?
     Math.min(Math.max(data.maxLength, 120), 900) :
@@ -97,7 +96,7 @@ function buildSalsaPrompt(data, retryReason = "") {
     "פרטים:",
     `יום: ${today}`,
     `סוג שיעור: ${categoryName}`,
-    `שם שולח: ${senderName}`,
+    "אל תציין שם שולח בהודעה, ואל תחתום את ההודעה בשם פרטי או בשם משתמש.",
     `ימי הולדת לציון: ${birthdayLine}`,
     birthdayNames.length > 0 ?
       "אם יש ימי הולדת לציון, חובה לשלב בהודעה משפט יום הולדת " +
@@ -154,15 +153,55 @@ function extractGeminiText(responseJson) {
 }
 
 /**
+ * Escapes dynamic text for a regular expression.
+ * @param {string} value Text to escape.
+ * @return {string} Regex-safe text.
+ */
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Removes an unwanted sender-name signature from the end of the message.
+ * @param {string} message Generated message.
+ * @param {Object} payload Callable payload.
+ * @return {string} Message without sender signature.
+ */
+function stripSenderSignature(message, payload) {
+  const senderName = cleanString(payload.senderName);
+  if (!senderName) {
+    return String(message || "").trim();
+  }
+
+  const escapedName = escapeRegExp(senderName);
+  let cleanMessage = String(message || "").trim();
+  const signaturePatterns = [
+    new RegExp(`\\n\\s*(?:[-–—]\\s*)?${escapedName}\\s*[.!]*\\s*$`, "iu"),
+    new RegExp(
+        `\\n\\s*(?:שלכם|באהבה|תודה|נתראה)[,،]?\\s*\\n\\s*` +
+        `${escapedName}\\s*[.!]*\\s*$`,
+        "iu",
+    ),
+  ];
+
+  for (const pattern of signaturePatterns) {
+    cleanMessage = cleanMessage.replace(pattern, "").trim();
+  }
+
+  return cleanMessage.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
  * Removes template leftovers and guarantees birthday text when needed.
  * @param {string} message Generated message.
  * @param {Object} payload Callable payload.
  * @return {string} Safe message to return to the app.
  */
 function finalizeSalsaMessage(message, payload) {
-  const cleanMessage = String(message || "")
-      .replace(/\{\{BIRTHDAY_BLOCK\}\}/g, "")
-      .trim();
+  const cleanMessage = stripSenderSignature(
+      String(message || "").replace(/\{\{BIRTHDAY_BLOCK\}\}/g, ""),
+      payload,
+  );
   const birthdayNames = cleanBirthdayNames(payload.birthdayNames);
   if (birthdayNames.length === 0) {
     return cleanMessage;

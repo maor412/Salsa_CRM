@@ -87,76 +87,78 @@ class _ShinesFlowDialogState extends State<ShinesFlowDialog> {
       context: context,
       builder: (context) => Dialog(
         child: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: AppColors.info.withOpacity(0.1),
-                      borderRadius: AppRadius.smallRadius,
-                    ),
-                    child: const Icon(
-                      Icons.edit_rounded,
-                      color: AppColors.info,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  const Expanded(
-                    child: Text(
-                      'עריכת שיינס',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.info.withOpacity(0.1),
+                        borderRadius: AppRadius.smallRadius,
+                      ),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: AppColors.info,
+                        size: 24,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppTextField(
-                controller: controller,
-                label: 'טקסט שיינס',
-                hint: 'הזן טקסט חדש',
-                maxLines: 3,
-                autofocus: true,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('ביטול'),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, controller.text),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.info,
-                      foregroundColor: Colors.white,
+                    const SizedBox(width: AppSpacing.md),
+                    const Expanded(
+                      child: Text(
+                        'עריכת שיינס',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                    child: const Text('שמור'),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  controller: controller,
+                  label: 'טקסט שיינס',
+                  hint: 'הזן טקסט חדש',
+                  maxLines: 3,
+                  autofocus: true,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('ביטול'),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, controller.text),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.info,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('שמור'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
 
     if (result != null && result.toString().trim().isNotEmpty && mounted) {
-      await context.read<ShinesProvider>().updateShinesItem(id, result.toString());
+      await context
+          .read<ShinesProvider>()
+          .updateShinesItem(id, result.toString());
     }
 
     controller.dispose();
@@ -180,35 +182,45 @@ class _ShinesFlowDialogState extends State<ShinesFlowDialog> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Center(
-        child: Hero(
-          tag: 'shinesFab',
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: size.width * 0.9,
-              height: size.height * 0.8,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: AppShadows.large,
-              ),
-              child: Column(
-                children: [
-                  // Header
-                  _buildHeader(),
-
-                  // תרשים הזרימה
-                  Expanded(
-                    child: _buildFlowChart(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardHeight),
+          child: Center(
+            child: Hero(
+              tag: 'shinesFab',
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: size.width * 0.9,
+                  height: size.height * 0.8,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: AppShadows.large,
                   ),
+                  child: Column(
+                    children: [
+                      // Header
+                      _buildHeader(),
 
-                  // אזור הוספה
-                  _buildAddSection(),
-                ],
+                      // תרשים הזרימה
+                      Expanded(
+                        child: _buildFlowChart(),
+                      ),
+
+                      // אזור הוספה
+                      _buildAddSection(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -320,6 +332,7 @@ class _ShinesFlowDialogState extends State<ShinesFlowDialog> {
 
         return SingleChildScrollView(
           controller: _scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.xl,
@@ -354,7 +367,7 @@ class _ShinesFlowDialogState extends State<ShinesFlowDialog> {
         left: AppSpacing.lg,
         right: AppSpacing.lg,
         top: AppSpacing.md,
-        bottom: AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom,
+        bottom: AppSpacing.lg,
       ),
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -377,6 +390,7 @@ class _ShinesFlowDialogState extends State<ShinesFlowDialog> {
               maxLines: 2,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _addShines(),
+              onTapOutside: (_) => _focusNode.unfocus(),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),

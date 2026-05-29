@@ -24,6 +24,7 @@ class AppTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final FocusNode? focusNode;
   final bool autofocus;
+  final TapRegionCallback? onTapOutside;
 
   const AppTextField({
     super.key,
@@ -47,6 +48,7 @@ class AppTextField extends StatelessWidget {
     this.inputFormatters,
     this.focusNode,
     this.autofocus = false,
+    this.onTapOutside,
   });
 
   @override
@@ -67,6 +69,7 @@ class AppTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       focusNode: focusNode,
       autofocus: autofocus,
+      onTapOutside: onTapOutside,
       style: const TextStyle(
         fontSize: 15,
         color: AppColors.textPrimary,
@@ -107,7 +110,8 @@ class AppTextField extends StatelessWidget {
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.mediumRadius,
-          borderSide: BorderSide(color: AppColors.border.withOpacity(0.5), width: 1),
+          borderSide:
+              BorderSide(color: AppColors.border.withOpacity(0.5), width: 1),
         ),
       ),
     );
@@ -144,13 +148,16 @@ class AppSearchField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint ?? 'חפש...',
         prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-        suffixIcon: showClearButton && controller != null && controller!.text.isNotEmpty
+        suffixIcon: showClearButton &&
+                controller != null &&
+                controller!.text.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.clear, color: AppColors.textSecondary),
-                onPressed: onClear ?? () {
-                  controller?.clear();
-                  if (onChanged != null) onChanged!('');
-                },
+                onPressed: onClear ??
+                    () {
+                      controller?.clear();
+                      if (onChanged != null) onChanged!('');
+                    },
               )
             : null,
         filled: true,
