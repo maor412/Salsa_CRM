@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/message_model.dart';
 import '../../models/student_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/attendance_report_service.dart';
+import '../../services/whatsapp_settings_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_theme.dart';
 import 'whatsapp_settings_screen.dart';
@@ -20,6 +22,8 @@ class TemplatesManagementScreen extends StatefulWidget {
 class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final AttendanceReportService _reportService = AttendanceReportService();
+  final WhatsAppSettingsService _whatsappSettingsService =
+      WhatsAppSettingsService();
   bool _isGeneratingPdf = false;
 
   @override
@@ -32,115 +36,78 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
       );
     }
 
-    return StreamBuilder<List<MessageTemplate>>(
-      stream: _firestoreService.getAllTemplates(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(child: Text('שגיאה: ${snapshot.error}'));
-        }
-
-        final templates = snapshot.data ?? [];
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Admin actions grid
-                _AdminActionGrid(
-                  onWhatsAppSettings: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WhatsAppSettingsScreen(),
-                      ),
-                    );
-                  },
-                  onAddTemplate: () => _showTemplateDialog(context),
-                  onAddStudent: () => _showAddStudentDialog(context),
-                  onExportPdf: _handleExportPdf,
-                  isGeneratingPdf: _isGeneratingPdf,
-                ),
-
-                const SizedBox(height: AppSpacing.xl),
-
-                // Templates section header
-                Row(
-                  children: [
-                    const Text(
-                      'תבניות הודעות',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${templates.length}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // Templates list
-                templates.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(AppSpacing.xl),
-                          child: Text(
-                            'אין תבניות. הוסף תבנית ראשונה!',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: templates.length,
-                        itemBuilder: (context, index) {
-                          final template = templates[index];
-                          return _TemplateCard(
-                            template: template,
-                            onEdit: () => _showTemplateDialog(
-                              context,
-                              template: template,
-                            ),
-                            onToggleStatus: () => _toggleTemplateStatus(template),
-                          );
-                        },
-                      ),
-              ],
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _AdminActionGrid(
+              onWhatsAppSettings: () => _openWhatsAppSettings(context),
+              onAddStudent: () => _showAddStudentDialog(context),
+              onExportPdf: _handleExportPdf,
+              isGeneratingPdf: _isGeneratingPdf,
             ),
-          ),
-        );
-      },
+            const SizedBox(height: AppSpacing.xl),
+            const Text(
+              'קוד QR לקבוצה',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FutureBuilder<String?>(
+              future: _whatsappSettingsService.getGroupLink(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const _QrLoadingCard();
+                }
+
+                if (snapshot.hasError) {
+                  return _QrEmptyCard(
+                    title: 'לא ניתן לטעון את קישור הקבוצה',
+                    message: 'נסה לפתוח שוב את המסך או לעדכן את הקישור.',
+                    buttonLabel: 'הגדר קישור WhatsApp',
+                    onPressed: () => _openWhatsAppSettings(context),
+                  );
+                }
+
+                final groupLink = snapshot.data?.trim();
+                if (groupLink == null || groupLink.isEmpty) {
+                  return _QrEmptyCard(
+                    title: 'עדיין אין קישור לקבוצת WhatsApp',
+                    message: 'הוסף קישור הזמנה כדי להציג כאן קוד QR לסריקה.',
+                    buttonLabel: 'הגדר קישור WhatsApp',
+                    onPressed: () => _openWhatsAppSettings(context),
+                  );
+                }
+
+                return _WhatsAppQrCard(
+                  groupLink: groupLink,
+                  onEditLink: () => _openWhatsAppSettings(context),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _openWhatsAppSettings(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const WhatsAppSettingsScreen(),
+      ),
+    );
+    if (mounted) {
+      _whatsappSettingsService.clearCache();
+      setState(() {});
+    }
   }
 
   /// הצגת דיאלוג הוספה/עריכת תבנית
@@ -152,7 +119,8 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
     final contentController = TextEditingController(
       text: template?.content ?? '',
     );
-    MessageCategory selectedCategory = template?.category ?? MessageCategory.regular;
+    MessageCategory selectedCategory =
+        template?.category ?? MessageCategory.regular;
 
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
@@ -364,9 +332,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              updatedTemplate.isActive
-                  ? 'התבנית הופעלה'
-                  : 'התבנית הושבתה',
+              updatedTemplate.isActive ? 'התבנית הופעלה' : 'התבנית הושבתה',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -466,18 +432,225 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
 }
 
 // ============================================================================
+// COMPONENT: WhatsApp QR Card
+// ============================================================================
+class _WhatsAppQrCard extends StatelessWidget {
+  final String groupLink;
+  final VoidCallback onEditLink;
+
+  const _WhatsAppQrCard({
+    required this.groupLink,
+    required this.onEditLink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.medium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.whatsapp.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: const Icon(
+                  Icons.qr_code_2,
+                  color: AppColors.whatsapp,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'קוד הצטרפות לקבוצה',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'סריקה תפתח את קבוצת ה-WhatsApp',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onEditLink,
+                tooltip: 'ערוך קישור',
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: QrImageView(
+              data: groupLink,
+              version: QrVersions.auto,
+              size: 230,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: AppColors.textPrimary,
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            groupLink,
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QrLoadingCard extends StatelessWidget {
+  const _QrLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.medium,
+      ),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _QrEmptyCard extends StatelessWidget {
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final VoidCallback onPressed;
+
+  const _QrEmptyCard({
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.medium,
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(
+              Icons.qr_code_2,
+              color: AppColors.primary,
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.settings),
+              label: Text(buttonLabel),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.whatsapp,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
 // COMPONENT: Admin Action Grid
 // ============================================================================
 class _AdminActionGrid extends StatelessWidget {
   final VoidCallback onWhatsAppSettings;
-  final VoidCallback onAddTemplate;
   final VoidCallback onAddStudent;
   final VoidCallback onExportPdf;
   final bool isGeneratingPdf;
 
   const _AdminActionGrid({
     required this.onWhatsAppSettings,
-    required this.onAddTemplate,
     required this.onAddStudent,
     required this.onExportPdf,
     required this.isGeneratingPdf,
@@ -510,10 +683,10 @@ class _AdminActionGrid extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildActionCard(
-                icon: Icons.add_circle,
-                label: 'תבנית חדשה',
-                color: AppColors.primary,
-                onTap: onAddTemplate,
+                icon: Icons.person_add,
+                label: 'הוסף תלמיד',
+                color: AppColors.info,
+                onTap: onAddStudent,
               ),
             ),
           ],
@@ -521,15 +694,6 @@ class _AdminActionGrid extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         Row(
           children: [
-            Expanded(
-              child: _buildActionCard(
-                icon: Icons.person_add,
-                label: 'הוסף תלמיד',
-                color: AppColors.info,
-                onTap: onAddStudent,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildActionCard(
                 icon: Icons.picture_as_pdf,
@@ -667,7 +831,9 @@ class _TemplateCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              template.isActive ? Icons.check_circle : Icons.cancel,
+                              template.isActive
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
                               size: 14,
                               color: template.isActive
                                   ? AppColors.success
@@ -700,7 +866,8 @@ class _TemplateCard extends StatelessWidget {
                       tooltip: 'עריכה',
                       color: AppColors.primary,
                       style: IconButton.styleFrom(
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: 0.1),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -713,7 +880,9 @@ class _TemplateCard extends StatelessWidget {
                       ),
                       onPressed: onToggleStatus,
                       tooltip: template.isActive ? 'השבת' : 'הפעל',
-                      color: template.isActive ? AppColors.warning : AppColors.success,
+                      color: template.isActive
+                          ? AppColors.warning
+                          : AppColors.success,
                       style: IconButton.styleFrom(
                         backgroundColor: template.isActive
                             ? AppColors.warning.withValues(alpha: 0.1)
@@ -829,7 +998,8 @@ class _AddStudentDialogState extends State<_AddStudentDialog> {
       textDirection: TextDirection.rtl,
       child: AlertDialog(
         scrollable: true,
-        title: const Text('\u05D4\u05D5\u05E1\u05E3 \u05EA\u05DC\u05DE\u05D9\u05D3 \u05D7\u05D3\u05E9'),
+        title: const Text(
+            '\u05D4\u05D5\u05E1\u05E3 \u05EA\u05DC\u05DE\u05D9\u05D3 \u05D7\u05D3\u05E9'),
         content: Form(
           key: _formKey,
           child: Column(
@@ -843,7 +1013,8 @@ class _AddStudentDialogState extends State<_AddStudentDialog> {
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: '\u05E9\u05DD \u05DE\u05DC\u05D0',
-                  hintText: '\u05D4\u05D6\u05DF \u05E9\u05DD \u05DE\u05DC\u05D0',
+                  hintText:
+                      '\u05D4\u05D6\u05DF \u05E9\u05DD \u05DE\u05DC\u05D0',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
@@ -863,7 +1034,8 @@ class _AddStudentDialogState extends State<_AddStudentDialog> {
                 textDirection: TextDirection.ltr,
                 decoration: const InputDecoration(
                   labelText: '\u05D8\u05DC\u05E4\u05D5\u05DF',
-                  hintText: '\u05D4\u05D6\u05DF \u05DE\u05E1\u05E4\u05E8 \u05D8\u05DC\u05E4\u05D5\u05DF',
+                  hintText:
+                      '\u05D4\u05D6\u05DF \u05DE\u05E1\u05E4\u05E8 \u05D8\u05DC\u05E4\u05D5\u05DF',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.phone),
                 ),
