@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:workmanager/workmanager.dart';
@@ -23,30 +22,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
   print('📱 Background message received: ${message.notification?.title}');
-
-  // הצגת נוטיפיקציה מקומית עם ה-channel הנכון
-  final FlutterLocalNotificationsPlugin notifications =
-      FlutterLocalNotificationsPlugin();
-
-  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-    'weekly_reminders',
-    'Weekly Reminders',
-    channelDescription: 'Weekly message reminders from Firebase',
-    importance: Importance.high,
-    priority: Priority.high,
-    playSound: true,
-    enableVibration: true,
-  );
-
-  const NotificationDetails details =
-      NotificationDetails(android: androidDetails);
-
-  await notifications.show(
-    message.hashCode,
-    message.notification?.title ?? '',
-    message.notification?.body ?? '',
-    details,
-  );
 }
 
 void main() async {
