@@ -44,21 +44,11 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _AdminActionGrid(
-              onWhatsAppSettings: () => _openWhatsAppSettings(context),
               onAddStudent: () => _showAddStudentDialog(context),
               onExportPdf: _handleExportPdf,
               isGeneratingPdf: _isGeneratingPdf,
             ),
             const SizedBox(height: AppSpacing.xl),
-            const Text(
-              'קוד QR לקבוצה',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
             FutureBuilder<String?>(
               future: _whatsappSettingsService.getGroupLink(),
               builder: (context, snapshot) {
@@ -499,7 +489,7 @@ class _WhatsAppQrCard extends StatelessWidget {
                 tooltip: 'ערוך קישור',
                 icon: const Icon(
                   Icons.edit_outlined,
-                  color: AppColors.primary,
+                  color: AppColors.whatsapp,
                 ),
               ),
             ],
@@ -644,13 +634,11 @@ class _QrEmptyCard extends StatelessWidget {
 // COMPONENT: Admin Action Grid
 // ============================================================================
 class _AdminActionGrid extends StatelessWidget {
-  final VoidCallback onWhatsAppSettings;
   final VoidCallback onAddStudent;
   final VoidCallback onExportPdf;
   final bool isGeneratingPdf;
 
   const _AdminActionGrid({
-    required this.onWhatsAppSettings,
     required this.onAddStudent,
     required this.onExportPdf,
     required this.isGeneratingPdf,
@@ -674,30 +662,17 @@ class _AdminActionGrid extends StatelessWidget {
           children: [
             Expanded(
               child: _buildActionCard(
-                icon: Icons.settings,
-                label: 'הגדרות WhatsApp',
-                color: AppColors.whatsapp,
-                onTap: onWhatsAppSettings,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _buildActionCard(
                 icon: Icons.person_add,
                 label: 'הוסף תלמיד',
                 color: AppColors.info,
                 onTap: onAddStudent,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildActionCard(
                 icon: Icons.picture_as_pdf,
-                label: isGeneratingPdf ? 'יוצר PDF...' : 'ייצא דוח PDF',
+                label: isGeneratingPdf ? 'יוצר PDF...' : 'ייצא דוח נוכחות',
                 color: AppColors.error,
                 onTap: isGeneratingPdf ? () {} : onExportPdf,
                 isLoading: isGeneratingPdf,
