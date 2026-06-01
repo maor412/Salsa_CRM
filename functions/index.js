@@ -369,10 +369,10 @@ exports.generateSalsaMessage = onCall(
     },
 );
 
-// תזכורת רביעי ב-22:50 (לבדיקה)
+// תזכורת רביעי ב-10:00 בבוקר
 exports.wednesdayReminder = onSchedule(
     {
-      schedule: "50 22 * * 3", // כל רביעי ב-22:50
+      schedule: "0 10 * * 3", // כל רביעי ב-10:00 בבוקר
       timeZone: "Asia/Jerusalem",
     },
     async (event) => {
@@ -441,10 +441,10 @@ exports.wednesdayReminder = onSchedule(
     },
 );
 
-// תזכורת שבת ב-22:50 (לבדיקה)
+// תזכורת שבת ב-10:00 בבוקר
 exports.saturdayReminder = onSchedule(
     {
-      schedule: "50 22 * * 6", // כל שבת ב-22:50
+      schedule: "0 10 * * 6", // כל שבת ב-10:00 בבוקר
       timeZone: "Asia/Jerusalem",
     },
     async (event) => {
@@ -513,10 +513,10 @@ exports.saturdayReminder = onSchedule(
     },
 );
 
-// בדיקת ימי הולדת - כל יום ב-22:50 (לבדיקה)
+// בדיקת ימי הולדת - כל יום ב-14:30
 exports.birthdayCheck = onSchedule(
     {
-      schedule: "50 22 * * *", // כל יום ב-22:50
+      schedule: "30 14 * * *", // כל יום ב-14:30
       timeZone: "Asia/Jerusalem",
     },
     async (event) => {

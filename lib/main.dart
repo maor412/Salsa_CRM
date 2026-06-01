@@ -78,8 +78,8 @@ Future<void> _initializeStartupServices() async {
 
   // ביטול אגרסיבי של כל משימות Workmanager
   // Firebase Functions מטפל בכל הנוטיפיקציות:
-  // - ימי הולדת: כל יום ב-9:00 (timezone Israel)
-  // - תזכורות רביעי ושבת: ב-9:30 (timezone Israel)
+  // - ימי הולדת: כל יום ב-14:30 (timezone Israel)
+  // - תזכורות רביעי ושבת: ב-10:00 בבוקר (timezone Israel)
   try {
     // ביטול ישיר של Workmanager ללא אתחול BackgroundService
     await Workmanager().cancelAll();
