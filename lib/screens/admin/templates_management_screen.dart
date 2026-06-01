@@ -60,7 +60,7 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
               onApprove: _approvePendingStudent,
               onReject: _rejectPendingStudent,
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.sm),
             FutureBuilder<String?>(
               future: _whatsappSettingsService.getGroupLink(),
               builder: (context, snapshot) {
@@ -620,47 +620,106 @@ class _PendingStudentsSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Text(
-                  'תלמידים ממתינים לאישור',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.warningLight,
-                    borderRadius: BorderRadius.circular(AppRadius.round),
-                  ),
-                  child: Text(
-                    '${pendingStudents.length}',
-                    style: const TextStyle(
-                      color: AppColors.warning,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              child: Row(
+                children: [
+                  const Text(
+                    'תלמידים ממתינים לאישור',
+                    style: TextStyle(
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningLight,
+                      borderRadius: BorderRadius.circular(AppRadius.round),
+                    ),
+                    child: Text(
+                      '${pendingStudents.length}',
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            ...pendingStudents.map(
-              (student) => _PendingStudentCard(
-                student: student,
-                onApprove: () => onApprove(student),
-                onReject: () => onReject(student),
-              ),
+            _PendingStudentsDeck(
+              students: pendingStudents,
+              onApprove: onApprove,
+              onReject: onReject,
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _PendingStudentsDeck extends StatelessWidget {
+  static const double _cardHeight = 190;
+  static const double _cardOffset = 24;
+
+  final List<PendingStudentModel> students;
+  final Future<void> Function(PendingStudentModel pending) onApprove;
+  final Future<void> Function(PendingStudentModel pending) onReject;
+
+  const _PendingStudentsDeck({
+    required this.students,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleLayers = students.length.clamp(1, 3);
+    final deckHeight = _cardHeight + ((visibleLayers - 1) * _cardOffset) + 12;
+
+    return SizedBox(
+      height: deckHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: List.generate(visibleLayers, (paintIndex) {
+          final layer = visibleLayers - 1 - paintIndex;
+          final student = students[layer];
+          final isTopCard = layer == 0;
+          final rightOffset = layer * -24.0;
+          final leftOffset = layer * 10.0;
+          final rotation = layer * 0.028;
+
+          return Positioned(
+            top: layer * _cardOffset,
+            left: leftOffset,
+            right: rightOffset,
+            height: _cardHeight,
+            child: Transform.rotate(
+              angle: rotation,
+              alignment: Alignment.bottomRight,
+              child: IgnorePointer(
+                ignoring: !isTopCard,
+                child: Opacity(
+                  opacity: isTopCard ? 1 : 0.96,
+                  child: _PendingStudentCard(
+                    student: student,
+                    onApprove: () => onApprove(student),
+                    onReject: () => onReject(student),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
@@ -679,91 +738,225 @@ class _PendingStudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.small,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppColors.primaryLight.withValues(alpha: 0.18),
-                child: Text(
-                  student.name.isNotEmpty ? student.name[0] : '?',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${student.phoneNumber} · ${_formatDate(student.birthday)}',
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onReject,
-                  icon: const Icon(Icons.close),
-                  label: const Text('דחה'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onApprove,
-                  icon: const Icon(Icons.check),
-                  label: const Text('אשר'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-            ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 5,
+                color: AppColors.warning.withValues(alpha: 0.75),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Center(
+                          child: Text(
+                            student.name.isNotEmpty ? student.name[0] : '?',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    student.name,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warningLight,
+                                    borderRadius:
+                                        BorderRadius.circular(AppRadius.round),
+                                  ),
+                                  child: const Text(
+                                    'ממתין',
+                                    style: TextStyle(
+                                      color: AppColors.warning,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.xs,
+                              children: [
+                                _PendingInfoChip(
+                                  icon: Icons.phone_rounded,
+                                  text: student.phoneNumber,
+                                  textDirection: TextDirection.ltr,
+                                ),
+                                _PendingInfoChip(
+                                  icon: Icons.cake_rounded,
+                                  text: _formatDate(student.birthday),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onReject,
+                          icon: const Icon(Icons.close_rounded),
+                          label: const Text('דחה'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            backgroundColor: AppColors.errorLight,
+                            side: BorderSide(
+                              color: AppColors.error.withValues(alpha: 0.25),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.round),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onApprove,
+                          icon: const Icon(Icons.check_rounded),
+                          label: const Text('אשר'),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.round),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   static String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _PendingInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final TextDirection? textDirection;
+
+  const _PendingInfoChip({
+    required this.icon,
+    required this.text,
+    this.textDirection,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppRadius.round),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            textDirection: textDirection,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
