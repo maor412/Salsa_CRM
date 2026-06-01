@@ -49,6 +49,12 @@ service cloud.firestore {
       allow write: if isInstructor();
     }
 
+    /* ===== pendingStudents ===== */
+    match /pendingStudents/{pendingStudentId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if false;
+    }
+
     /* ===== attendanceSessions ===== */
     match /attendanceSessions/{sessionId} {
       allow read: if isSignedIn();

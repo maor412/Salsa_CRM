@@ -1,10 +1,12 @@
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {logger} = require("firebase-functions/v2");
 
 admin.initializeApp();
 
+const STUDENT_JOIN_TOKEN =
+  process.env.STUDENT_JOIN_TOKEN || "7ZOCp52ropIiMdTyrY2aj31LEeYCyLuR";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/` +
@@ -47,6 +49,144 @@ function cleanBirthdayNames(value) {
       .filter(Boolean)
       .slice(0, 5);
 }
+
+/**
+ * Sends a JSON response with permissive CORS headers for the public form.
+ * @param {Object} res Express response object.
+ * @param {number} status HTTP status code.
+ * @param {Object} body JSON body.
+ */
+function sendJson(res, status, body) {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.status(status).json(body);
+}
+
+/**
+ * Parses a YYYY-MM-DD browser date input.
+ * @param {*} value Raw birthday value.
+ * @return {Date|null} Parsed date at midday UTC, or null.
+ */
+function parseBirthdayInput(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date > new Date()
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+/**
+ * Normalizes Israeli phone input enough for storage and duplicate checks.
+ * @param {string} phone Raw phone.
+ * @return {string} Digits-only phone with leading 0 when possible.
+ */
+function normalizePhone(phone) {
+  let digits = String(phone || "").replace(/\D/g, "");
+  if (digits.startsWith("972")) {
+    digits = `0${digits.slice(3)}`;
+  }
+  return digits;
+}
+
+exports.submitPendingStudent = onRequest(async (req, res) => {
+  if (req.method === "OPTIONS") {
+    sendJson(res, 204, {});
+    return;
+  }
+
+  if (req.method !== "POST") {
+    sendJson(res, 405, {error: "method-not-allowed"});
+    return;
+  }
+
+  try {
+    const data = req.body || {};
+    const token = cleanString(data.token);
+
+    if (token !== STUDENT_JOIN_TOKEN) {
+      sendJson(res, 403, {error: "invalid-link"});
+      return;
+    }
+
+    const name = cleanString(data.name).replace(/\s+/g, " ");
+    const phone = normalizePhone(data.phone);
+    const birthday = parseBirthdayInput(data.birthday);
+
+    if (name.length < 2 || name.length > 80) {
+      sendJson(res, 400, {error: "invalid-name"});
+      return;
+    }
+
+    if (!/^05\d{8}$/.test(phone)) {
+      sendJson(res, 400, {error: "invalid-phone"});
+      return;
+    }
+
+    if (!birthday) {
+      sendJson(res, 400, {error: "invalid-birthday"});
+      return;
+    }
+
+    const db = admin.firestore();
+    const existingPending = await db.collection("pendingStudents")
+        .where("phoneNumber", "==", phone)
+        .where("status", "==", "pending")
+        .limit(1)
+        .get();
+
+    if (!existingPending.empty) {
+      sendJson(res, 409, {error: "already-pending"});
+      return;
+    }
+
+    const existingStudent = await db.collection("students")
+        .where("phoneNumber", "==", phone)
+        .where("isActive", "==", true)
+        .limit(1)
+        .get();
+
+    if (!existingStudent.empty) {
+      sendJson(res, 409, {error: "already-exists"});
+      return;
+    }
+
+    await db.collection("pendingStudents").add({
+      name,
+      phoneNumber: phone,
+      birthday: admin.firestore.Timestamp.fromDate(birthday),
+      status: "pending",
+      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      source: "public_join_form",
+    });
+
+    logger.info(`Pending student submitted: ${name}`);
+    sendJson(res, 200, {ok: true});
+  } catch (error) {
+    logger.error("Error submitting pending student:", error);
+    sendJson(res, 500, {error: "internal"});
+  }
+});
 
 /**
  * Builds the Hebrew prompt used for WhatsApp salsa message generation.

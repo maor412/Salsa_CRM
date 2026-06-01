@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "salsa-crew-assistant"
-  }
+  },
+  "targets": {
+    "salsa-crew-assistant": {
+      "hosting": {
+        "default": [
+          "salsa-crew-assistant"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

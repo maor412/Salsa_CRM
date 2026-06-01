@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/student_model.dart';
+import '../models/pending_student_model.dart';
 import '../models/attendance_model.dart';
 import '../models/exercise_model.dart';
 import '../models/message_model.dart';
@@ -49,6 +50,66 @@ class FirestoreService {
       students.sort((a, b) => a.name.compareTo(b.name));
 
       return students;
+    });
+  }
+
+  /// קבלת תלמידים שהגיעו מטופס ההצטרפות וממתינים לאישור
+  Stream<List<PendingStudentModel>> getPendingStudents() {
+    return _firestore
+        .collection('pendingStudents')
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) {
+      final pending = snapshot.docs
+          .map((doc) => PendingStudentModel.fromFirestore(doc))
+          .toList();
+      pending.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      return pending;
+    });
+  }
+
+  /// אישור תלמיד ממתין והעברתו לרשימת התלמידים הפעילים
+  Future<void> approvePendingStudent(PendingStudentModel pending) async {
+    final pendingRef = _firestore.collection('pendingStudents').doc(pending.id);
+    final studentRef =
+        _firestore.collection(FirebaseConfig.studentsCollection).doc();
+
+    await _firestore.runTransaction((transaction) async {
+      final pendingDoc = await transaction.get(pendingRef);
+      if (!pendingDoc.exists) {
+        throw Exception('הבקשה כבר לא קיימת');
+      }
+
+      final data = pendingDoc.data() as Map<String, dynamic>;
+      if (data['status'] != 'pending') {
+        throw Exception('הבקשה כבר טופלה');
+      }
+
+      transaction.set(studentRef, {
+        'name': data['name'] ?? pending.name,
+        'phoneNumber': data['phoneNumber'] ?? pending.phoneNumber,
+        'birthday': data['birthday'] ?? Timestamp.fromDate(pending.birthday),
+        'joinedAt': Timestamp.now(),
+        'isActive': true,
+        'notes': null,
+      });
+
+      transaction.update(pendingRef, {
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+        'studentId': studentRef.id,
+      });
+    });
+  }
+
+  /// דחיית תלמיד ממתין
+  Future<void> rejectPendingStudent(String pendingStudentId) async {
+    await _firestore
+        .collection('pendingStudents')
+        .doc(pendingStudentId)
+        .update({
+      'status': 'rejected',
+      'rejectedAt': FieldValue.serverTimestamp(),
     });
   }
 

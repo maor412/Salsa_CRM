@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/message_model.dart';
+import '../../models/pending_student_model.dart';
 import '../../models/student_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/attendance_report_service.dart';
@@ -20,6 +22,9 @@ class TemplatesManagementScreen extends StatefulWidget {
 }
 
 class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
+  static const String _studentJoinLink =
+      'https://salsa-crew-assistant.web.app/join/?token=7ZOCp52ropIiMdTyrY2aj31LEeYCyLuR';
+
   final FirestoreService _firestoreService = FirestoreService();
   final AttendanceReportService _reportService = AttendanceReportService();
   final WhatsAppSettingsService _whatsappSettingsService =
@@ -45,8 +50,15 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
           children: [
             _AdminActionGrid(
               onAddStudent: () => _showAddStudentDialog(context),
+              onShowJoinLink: () => _showJoinLinkDialog(context),
               onExportPdf: _handleExportPdf,
               isGeneratingPdf: _isGeneratingPdf,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _PendingStudentsSection(
+              firestoreService: _firestoreService,
+              onApprove: _approvePendingStudent,
+              onReject: _rejectPendingStudent,
             ),
             const SizedBox(height: AppSpacing.xl),
             FutureBuilder<String?>(
@@ -97,6 +109,162 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
     if (mounted) {
       _whatsappSettingsService.clearCache();
       setState(() {});
+    }
+  }
+
+  Future<void> _showJoinLinkDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.xl,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'קישור למסך מילוי פרטים',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    'שלח את הקישור לתלמידים חדשים. הפרטים ייכנסו לרשימת המתנה לאישור.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      height: 1.4,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: QrImageView(
+                        data: _studentJoinLink,
+                        version: QrVersions.auto,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  const SelectableText(
+                    _studentJoinLink,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('סגור'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            await Clipboard.setData(
+                              const ClipboardData(text: _studentJoinLink),
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            if (mounted) {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('הקישור הועתק'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.copy),
+                          label: const Text('העתק'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approvePendingStudent(PendingStudentModel pending) async {
+    try {
+      await _firestoreService.approvePendingStudent(pending);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${pending.name} נוסף לרשימת התלמידים'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה באישור תלמיד: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectPendingStudent(PendingStudentModel pending) async {
+    try {
+      await _firestoreService.rejectPendingStudent(pending.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${pending.name} נדחה'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה בדחיית תלמיד: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -422,6 +590,184 @@ class _TemplatesManagementScreenState extends State<TemplatesManagementScreen> {
 }
 
 // ============================================================================
+// COMPONENT: Pending Students
+// ============================================================================
+class _PendingStudentsSection extends StatelessWidget {
+  final FirestoreService firestoreService;
+  final Future<void> Function(PendingStudentModel pending) onApprove;
+  final Future<void> Function(PendingStudentModel pending) onReject;
+
+  const _PendingStudentsSection({
+    required this.firestoreService,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PendingStudentModel>>(
+      stream: firestoreService.getPendingStudents(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        final pendingStudents = snapshot.data ?? [];
+        if (pendingStudents.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'תלמידים ממתינים לאישור',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningLight,
+                    borderRadius: BorderRadius.circular(AppRadius.round),
+                  ),
+                  child: Text(
+                    '${pendingStudents.length}',
+                    style: const TextStyle(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ...pendingStudents.map(
+              (student) => _PendingStudentCard(
+                student: student,
+                onApprove: () => onApprove(student),
+                onReject: () => onReject(student),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PendingStudentCard extends StatelessWidget {
+  final PendingStudentModel student;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _PendingStudentCard({
+    required this.student,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.small,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppColors.primaryLight.withValues(alpha: 0.18),
+                child: Text(
+                  student.name.isNotEmpty ? student.name[0] : '?',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      student.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${student.phoneNumber} · ${_formatDate(student.birthday)}',
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onReject,
+                  icon: const Icon(Icons.close),
+                  label: const Text('דחה'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onApprove,
+                  icon: const Icon(Icons.check),
+                  label: const Text('אשר'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+// ============================================================================
 // COMPONENT: WhatsApp QR Card
 // ============================================================================
 class _WhatsAppQrCard extends StatelessWidget {
@@ -635,11 +981,13 @@ class _QrEmptyCard extends StatelessWidget {
 // ============================================================================
 class _AdminActionGrid extends StatelessWidget {
   final VoidCallback onAddStudent;
+  final VoidCallback onShowJoinLink;
   final VoidCallback onExportPdf;
   final bool isGeneratingPdf;
 
   const _AdminActionGrid({
     required this.onAddStudent,
+    required this.onShowJoinLink,
     required this.onExportPdf,
     required this.isGeneratingPdf,
   });
@@ -649,15 +997,6 @@ class _AdminActionGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'פעולות ניהול',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
@@ -668,7 +1007,16 @@ class _AdminActionGrid extends StatelessWidget {
                 onTap: onAddStudent,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: _buildActionCard(
+                icon: Icons.link,
+                label: 'הצג קישור מילוי פרטים',
+                color: AppColors.primary,
+                onTap: onShowJoinLink,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: _buildActionCard(
                 icon: Icons.picture_as_pdf,
@@ -689,7 +1037,6 @@ class _AdminActionGrid extends StatelessWidget {
     required String label,
     required Color color,
     required VoidCallback onTap,
-    bool fullWidth = false,
     bool isLoading = false,
   }) {
     return Card(
@@ -703,12 +1050,16 @@ class _AdminActionGrid extends StatelessWidget {
         onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          height: 142,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.md,
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -725,18 +1076,20 @@ class _AdminActionGrid extends StatelessWidget {
                     : Icon(
                         icon,
                         color: color,
-                        size: 28,
+                        size: 26,
                       ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
