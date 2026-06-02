@@ -667,8 +667,8 @@ class _PendingStudentsSection extends StatelessWidget {
 }
 
 class _PendingStudentsDeck extends StatelessWidget {
-  static const double _cardHeight = 190;
-  static const double _cardOffset = 24;
+  static const double _cardHeight = 162;
+  static const double _cardOffset = 20;
 
   final List<PendingStudentModel> students;
   final Future<void> Function(PendingStudentModel pending) onApprove;
@@ -683,7 +683,7 @@ class _PendingStudentsDeck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleLayers = students.length.clamp(1, 3);
-    final deckHeight = _cardHeight + ((visibleLayers - 1) * _cardOffset) + 12;
+    final deckHeight = _cardHeight + ((visibleLayers - 1) * _cardOffset) + 10;
 
     return SizedBox(
       height: deckHeight,
@@ -740,18 +740,18 @@ class _PendingStudentCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x14000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            blurRadius: 16,
+            offset: Offset(0, 7),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         child: Stack(
           children: [
             Positioned(
@@ -764,25 +764,25 @@ class _PendingStudentCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        width: 58,
-                        height: 58,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
                           color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                         child: Center(
                           child: Text(
                             student.name.isNotEmpty ? student.name[0] : '?',
                             style: const TextStyle(
                               color: AppColors.primary,
-                              fontSize: 24,
+                              fontSize: 21,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -799,7 +799,7 @@ class _PendingStudentCard extends StatelessWidget {
                                   child: Text(
                                     student.name,
                                     style: const TextStyle(
-                                      fontSize: 22,
+                                      fontSize: 19,
                                       fontWeight: FontWeight.w800,
                                       color: AppColors.textPrimary,
                                     ),
@@ -810,8 +810,8 @@ class _PendingStudentCard extends StatelessWidget {
                                 const SizedBox(width: AppSpacing.sm),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.sm,
-                                    vertical: 4,
+                                    horizontal: 7,
+                                    vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppColors.warningLight,
@@ -822,7 +822,7 @@ class _PendingStudentCard extends StatelessWidget {
                                     'ממתין',
                                     style: TextStyle(
                                       color: AppColors.warning,
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -850,7 +850,7 @@ class _PendingStudentCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       Expanded(
@@ -868,9 +868,9 @@ class _PendingStudentCard extends StatelessWidget {
                               borderRadius:
                                   BorderRadius.circular(AppRadius.round),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 11),
                             textStyle: const TextStyle(
-                              fontSize: 17,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -890,9 +890,9 @@ class _PendingStudentCard extends StatelessWidget {
                               borderRadius:
                                   BorderRadius.circular(AppRadius.round),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 11),
                             textStyle: const TextStyle(
-                              fontSize: 17,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -929,8 +929,8 @@ class _PendingInfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 5,
+        horizontal: 7,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
@@ -941,7 +941,7 @@ class _PendingInfoChip extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 14,
+            size: 13,
             color: AppColors.textSecondary,
           ),
           const SizedBox(width: 4),
@@ -950,7 +950,7 @@ class _PendingInfoChip extends StatelessWidget {
             textDirection: textDirection,
             style: const TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
